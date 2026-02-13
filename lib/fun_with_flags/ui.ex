@@ -11,11 +11,13 @@ defmodule FunWithFlags.UI do
   def start(_type, _args) do
     check_cowboy()
 
+    port = 9090
+
     children = [
-      {Plug.Cowboy, scheme: :http, plug: FunWithFlags.UI.Router, options: [port: 9090]}
+      {Plug.Cowboy, scheme: :http, plug: FunWithFlags.UI.Router, options: [port: port]}
     ]
 
-    IO.puts("Starting FunWithFlags.UI on port 9090")
+    IO.puts("Starting FunWithFlags.UI on http://localhost:#{port}")
 
     opts = [strategy: :one_for_one, name: FunWithFlags.UI.Supervisor]
     Supervisor.start_link(children, opts)
@@ -50,8 +52,9 @@ defmodule FunWithFlags.UI do
   of :cowboy and :ranch.
   """
   def run_standalone do
-    IO.puts("Starting FunWithFlags.UI on port 9090")
-    Plug.Cowboy.http FunWithFlags.UI.Router, [], port: 9090
+    port = 9090
+    IO.puts("Starting FunWithFlags.UI on http://localhost:#{port}")
+    Plug.Cowboy.http FunWithFlags.UI.Router, [], port: port
   end
 
 
