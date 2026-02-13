@@ -8,6 +8,8 @@ defmodule FunWithFlags.UI.Router do
   use Plug.Router
   alias FunWithFlags.UI.{SimpleActor, Templates, Utils}
 
+  @import_disabled Mix.env() == :prod
+
   if Mix.env == :dev do
     use Plug.Debugger, otp_app: :fun_with_flags_ui
   end
@@ -21,7 +23,7 @@ defmodule FunWithFlags.UI.Router do
 
   plug :protect_from_forgery, Plug.CSRFProtection.init([])
 
-  plug Plug.Parsers, parsers: [:urlencoded]
+  plug Plug.Parsers, parsers: [:urlencoded, :multipart], length: 10_000_000
   plug Plug.MethodOverride
 
   plug :assign_csrf_token
@@ -259,6 +261,61 @@ defmodule FunWithFlags.UI.Router do
   end
 
 
+  # Settings page
+  #
+  get "/settings" do
+    success_message = Map.get(conn.query_params, "success")
+
+    assigns = %{
+      conn: conn,
+      success_message: parse_success_message(success_message),
+      import_disabled: @import_disabled
+    }
+
+    html_resp(conn, 200, Templates.settings(assigns))
+  end
+
+
+  # Export flags
+  #
+  post "/settings/export" do
+    case FunWithFlags.export_flags() do
+      {:ok, binary} ->
+        timestamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d_%H-%M-%S")
+        filename = "flags_export_#{timestamp}.etf"
+
+        conn
+        |> put_resp_content_type("application/octet-stream")
+        |> put_resp_header("content-disposition", "attachment; filename=\"#{filename}\"")
+        |> send_resp(200, binary)
+
+      {:error, reason} ->
+        assigns = %{
+          conn: conn,
+          error_message: "Export failed: #{inspect(reason)}",
+          import_disabled: @import_disabled
+        }
+
+        html_resp(conn, 500, Templates.settings(assigns))
+    end
+  end
+
+
+  # Import flags
+  #
+  post "/settings/import" do
+    if @import_disabled do
+      html_resp(conn, 403, Templates.settings(%{
+        conn: conn,
+        import_disabled: true,
+        import_error_message: "Import is disabled in production."
+      }))
+    else
+      handle_import(conn)
+    end
+  end
+
+
   match _ do
     send_resp(conn, 404, "")
   end
@@ -308,4 +365,56 @@ defmodule FunWithFlags.UI.Router do
         conn
     end
   end
+
+
+  defp handle_import(conn) do
+    case conn.params do
+      %{"file" => %Plug.Upload{path: temp_path}, "mode" => mode_str} ->
+        case File.read(temp_path) do
+          {:ok, binary} ->
+            mode = parse_import_mode(mode_str)
+
+            case FunWithFlags.import_flags(binary, mode) do
+              {:ok, count} ->
+                redirect_to conn, "/settings?success=imported_#{count}"
+
+              {:error, reason} ->
+                assigns = %{
+                  conn: conn,
+                  import_disabled: @import_disabled,
+                  import_error_message: to_string(reason)
+                }
+
+                html_resp(conn, 400, Templates.settings(assigns))
+            end
+
+          {:error, posix_error} ->
+            assigns = %{
+              conn: conn,
+              import_disabled: @import_disabled,
+              import_error_message: "Failed to read uploaded file: #{posix_error}"
+            }
+
+            html_resp(conn, 400, Templates.settings(assigns))
+        end
+
+      _ ->
+        assigns = %{
+          conn: conn,
+          import_disabled: @import_disabled,
+          import_error_message: "No file uploaded or invalid form data"
+        }
+
+        html_resp(conn, 400, Templates.settings(assigns))
+    end
+  end
+
+
+  defp parse_import_mode("clear"), do: :clear_and_import
+  defp parse_import_mode("overwrite"), do: :import_and_overwrite
+  defp parse_import_mode(_), do: :import_and_overwrite
+
+
+  defp parse_success_message("imported_" <> count), do: "Successfully imported #{count} flags"
+  defp parse_success_message(_), do: nil
 end
