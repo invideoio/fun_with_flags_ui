@@ -12,12 +12,13 @@ defmodule FunWithFlags.UI do
     check_cowboy()
 
     children = [
-      {Plug.Cowboy, scheme: :http, plug: FunWithFlags.UI.Router, options: [port: 9080]}
+      {Plug.Cowboy, scheme: :http, plug: FunWithFlags.UI.Router, options: [port: 8080]}
     ]
 
     opts = [strategy: :one_for_one, name: FunWithFlags.UI.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
 
   # Since :cowboy is an optional dependency, if we want to run this
   # standalone we want to return a clear error message if Cowboy is
@@ -39,6 +40,7 @@ defmodule FunWithFlags.UI do
     end
   end
 
+
   @doc """
   Convenience function to simply run the Plug in Cowboy.
 
@@ -46,8 +48,9 @@ defmodule FunWithFlags.UI do
   of :cowboy and :ranch.
   """
   def run_standalone do
-    Plug.Cowboy.http(FunWithFlags.UI.Router, [], port: 9080)
+    Plug.Cowboy.http FunWithFlags.UI.Router, [], port: 8080
   end
+
 
   @doc """
   Convenience function to run the Plug in a custom supervision tree.

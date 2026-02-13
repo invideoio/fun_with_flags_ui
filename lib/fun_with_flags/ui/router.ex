@@ -8,31 +8,27 @@ defmodule FunWithFlags.UI.Router do
   use Plug.Router
   alias FunWithFlags.UI.{SimpleActor, Templates, Utils}
 
-  if Mix.env() == :dev do
+  @import_disabled Mix.env() == :prod
+
+  if Mix.env == :dev do
     use Plug.Debugger, otp_app: :fun_with_flags_ui
   end
 
-  plug(Plug.Logger, log: :debug)
+  plug Plug.Logger, log: :debug
 
-  plug(Plug.Static,
+  plug Plug.Static,
     gzip: true,
     at: "/assets",
     from: :fun_with_flags_ui
-  )
 
-  plug(:protect_from_forgery, Plug.CSRFProtection.init([]))
+  plug :protect_from_forgery, Plug.CSRFProtection.init([])
 
-  plug(Plug.Parsers,
-    parsers: [:urlencoded, :multipart],
-    # 10MB limit
-    length: 10_000_000
-  )
+  plug Plug.Parsers, parsers: [:urlencoded, :multipart], length: 10_000_000
+  plug Plug.MethodOverride
 
-  plug(Plug.MethodOverride)
-
-  plug(:assign_csrf_token)
-  plug(:match)
-  plug(:dispatch)
+  plug :assign_csrf_token
+  plug :match
+  plug :dispatch
 
   @doc false
   def call(conn, opts) do
@@ -40,10 +36,12 @@ defmodule FunWithFlags.UI.Router do
     super(conn, opts)
   end
 
+
   get "/" do
     conn
     |> redirect_to("/flags")
   end
+
 
   # form to create a new flag
   #
@@ -51,6 +49,7 @@ defmodule FunWithFlags.UI.Router do
     conn
     |> html_resp(200, Templates.new(%{conn: conn}))
   end
+
 
   # endpoint to create a new flag
   #
@@ -60,32 +59,26 @@ defmodule FunWithFlags.UI.Router do
     case Utils.validate_flag_name(conn, name) do
       :ok ->
         case Utils.create_flag_with_name(name) do
-          {:ok, _} ->
-            redirect_to(conn, "/flags/#{name}")
-
-          _ ->
-            html_resp(
-              conn,
-              400,
-              Templates.new(%{conn: conn, error_message: "Something went wrong!"})
-            )
+          {:ok, _} -> redirect_to conn, "/flags/#{name}"
+          _ -> html_resp(conn, 400, Templates.new(%{conn: conn, error_message: "Something went wrong!"}))
         end
-
       {:fail, reason} ->
         html_resp(conn, 400, Templates.new(%{conn: conn, error_message: reason}))
     end
   end
 
+
   # get a list of the flags
   #
   get "/flags" do
-    {:ok, flags} = FunWithFlags.all_flags()
+    {:ok, flags} = FunWithFlags.all_flags
     flags = Utils.sort_flags(flags)
     body = Templates.index(conn: conn, flags: flags)
 
     conn
     |> html_resp(200, body)
   end
+
 
   # flag details
   #
@@ -94,12 +87,12 @@ defmodule FunWithFlags.UI.Router do
       {:ok, flag} ->
         body = Templates.details(conn: conn, flag: flag)
         html_resp(conn, 200, body)
-
       {:error, _} ->
         body = Templates.not_found(conn: conn, name: name)
         html_resp(conn, 404, body)
     end
   end
+
 
   # to clear an entire flag
   #
@@ -108,8 +101,9 @@ defmodule FunWithFlags.UI.Router do
     |> String.to_existing_atom()
     |> FunWithFlags.clear()
 
-    redirect_to(conn, "/flags")
+    redirect_to conn, "/flags"
   end
+
 
   # to toggle the default state of a flag
   #
@@ -123,16 +117,18 @@ defmodule FunWithFlags.UI.Router do
       FunWithFlags.disable(flag_name)
     end
 
-    redirect_to(conn, "/flags/#{name}")
+    redirect_to conn, "/flags/#{name}"
   end
+
 
   # to clear a boolean gate
   #
   delete "/flags/:name/boolean" do
     flag_name = String.to_existing_atom(name)
     FunWithFlags.clear(flag_name, boolean: true)
-    redirect_to(conn, "/flags/#{name}")
+    redirect_to conn, "/flags/#{name}"
   end
+
 
   # to toggle an actor gate
   #
@@ -147,8 +143,9 @@ defmodule FunWithFlags.UI.Router do
       FunWithFlags.disable(flag_name, for_actor: actor)
     end
 
-    redirect_to(conn, "/flags/#{name}#actor_#{actor_id}")
+    redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
   end
+
 
   # to clear an actor gate
   #
@@ -157,8 +154,9 @@ defmodule FunWithFlags.UI.Router do
     actor = %SimpleActor{id: actor_id}
 
     FunWithFlags.clear(flag_name, for_actor: actor)
-    redirect_to(conn, "/flags/#{name}#actor_gates")
+    redirect_to conn, "/flags/#{name}#actor_gates"
   end
+
 
   # to toggle a group gate
   #
@@ -173,8 +171,9 @@ defmodule FunWithFlags.UI.Router do
       FunWithFlags.disable(flag_name, for_group: group_name)
     end
 
-    redirect_to(conn, "/flags/#{name}#group_#{group_name}")
+    redirect_to conn, "/flags/#{name}#group_#{group_name}"
   end
+
 
   # to clear a group gate
   #
@@ -184,16 +183,18 @@ defmodule FunWithFlags.UI.Router do
 
     FunWithFlags.clear(flag_name, for_group: group_name)
 
-    redirect_to(conn, "/flags/#{name}#group_gates")
+    redirect_to conn, "/flags/#{name}#group_gates"
   end
+
 
   # to clear a percentage gate
   #
   delete "/flags/:name/percentage" do
     flag_name = String.to_existing_atom(name)
     FunWithFlags.clear(flag_name, for_percentage: true)
-    redirect_to(conn, "/flags/#{name}")
+    redirect_to conn, "/flags/#{name}"
   end
+
 
   # to add a new actor to a flag
   #
@@ -205,28 +206,19 @@ defmodule FunWithFlags.UI.Router do
       :ok ->
         enabled = Utils.parse_bool(conn.params["enabled"])
         actor = %SimpleActor{id: actor_id}
-
         if enabled do
           FunWithFlags.enable(flag_name, for_actor: actor)
         else
           FunWithFlags.disable(flag_name, for_actor: actor)
         end
-
-        redirect_to(conn, "/flags/#{name}#actor_#{actor_id}")
-
+        redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
       {:fail, reason} ->
         {:ok, flag} = Utils.get_flag(name)
-
-        body =
-          Templates.details(
-            conn: conn,
-            flag: flag,
-            actor_error_message: "The actor ID #{reason}."
-          )
-
+        body = Templates.details(conn: conn, flag: flag, actor_error_message: "The actor ID #{reason}.")
         html_resp(conn, 400, body)
     end
   end
+
 
   # to add a new group to a flag
   #
@@ -237,28 +229,19 @@ defmodule FunWithFlags.UI.Router do
     case Utils.validate(group_name) do
       :ok ->
         enabled = Utils.parse_bool(conn.params["enabled"])
-
         if enabled do
           FunWithFlags.enable(flag_name, for_group: group_name)
         else
           FunWithFlags.disable(flag_name, for_group: group_name)
         end
-
-        redirect_to(conn, "/flags/#{name}#group_#{group_name}")
-
+        redirect_to conn, "/flags/#{name}#group_#{group_name}"
       {:fail, reason} ->
         {:ok, flag} = Utils.get_flag(name)
-
-        body =
-          Templates.details(
-            conn: conn,
-            flag: flag,
-            group_error_message: "The group name #{reason}."
-          )
-
+        body = Templates.details(conn: conn, flag: flag, group_error_message: "The group name #{reason}.")
         html_resp(conn, 400, body)
     end
   end
+
 
   # to add or replace a percentage gate
   #
@@ -269,21 +252,14 @@ defmodule FunWithFlags.UI.Router do
     case Utils.parse_and_validate_float(conn.params["percent_value"]) do
       {:ok, float} ->
         FunWithFlags.enable(flag_name, for_percentage_of: {type, float})
-        redirect_to(conn, "/flags/#{name}#percentage_gate")
-
+        redirect_to conn, "/flags/#{name}#percentage_gate"
       {:fail, reason} ->
         {:ok, flag} = Utils.get_flag(name)
-
-        body =
-          Templates.details(
-            conn: conn,
-            flag: flag,
-            percentage_error_message: "The percentage value #{reason}."
-          )
-
+        body = Templates.details(conn: conn, flag: flag, percentage_error_message: "The percentage value #{reason}.")
         html_resp(conn, 400, body)
     end
   end
+
 
   # Settings page
   #
@@ -292,11 +268,13 @@ defmodule FunWithFlags.UI.Router do
 
     assigns = %{
       conn: conn,
-      success_message: parse_success_message(success_message)
+      success_message: parse_success_message(success_message),
+      import_disabled: @import_disabled
     }
 
     html_resp(conn, 200, Templates.settings(assigns))
   end
+
 
   # Export flags
   #
@@ -314,47 +292,34 @@ defmodule FunWithFlags.UI.Router do
       {:error, reason} ->
         assigns = %{
           conn: conn,
-          error_message: "Export failed: #{inspect(reason)}"
+          error_message: "Export failed: #{inspect(reason)}",
+          import_disabled: @import_disabled
         }
 
         html_resp(conn, 500, Templates.settings(assigns))
     end
   end
 
+
   # Import flags
   #
   post "/settings/import" do
-    case conn.params do
-      %{"file" => %Plug.Upload{path: temp_path}, "mode" => mode_str} ->
-        binary = File.read!(temp_path)
-        mode = parse_import_mode(mode_str)
-
-        case FunWithFlags.import_flags(binary, mode) do
-          {:ok, count} ->
-            redirect_to(conn, "/settings?success=imported_#{count}")
-
-          {:error, reason} ->
-            assigns = %{
-              conn: conn,
-              import_error_message: reason
-            }
-
-            html_resp(conn, 400, Templates.settings(assigns))
-        end
-
-      _ ->
-        assigns = %{
-          conn: conn,
-          import_error_message: "No file uploaded or invalid form data"
-        }
-
-        html_resp(conn, 400, Templates.settings(assigns))
+    if @import_disabled do
+      html_resp(conn, 403, Templates.settings(%{
+        conn: conn,
+        import_disabled: true,
+        import_error_message: "Import is disabled in production."
+      }))
+    else
+      handle_import(conn)
     end
   end
+
 
   match _ do
     send_resp(conn, 404, "")
   end
+
 
   defp html_resp(conn, status, body) do
     conn
@@ -362,27 +327,28 @@ defmodule FunWithFlags.UI.Router do
     |> send_resp(status, body)
   end
 
+
   defp redirect_to(conn, uri) do
     path = Path.join(conn.assigns[:namespace], uri)
 
     conn
     |> put_resp_header("location", path)
     |> put_resp_content_type("text/html")
-    |> send_resp(
-      302,
-      "<html><body>You are being <a href=\"#{path}\">redirected</a>.</body></html>"
-    )
+    |> send_resp(302, "<html><body>You are being <a href=\"#{path}\">redirected</a>.</body></html>")
   end
+
 
   defp extract_namespace(conn, opts) do
     ns = opts[:namespace] || ""
     Plug.Conn.assign(conn, :namespace, "/" <> ns)
   end
 
+
   defp assign_csrf_token(conn, _opts) do
     csrf_token = Plug.CSRFProtection.get_csrf_token()
     Plug.Conn.assign(conn, :csrf_token, csrf_token)
   end
+
 
   # Custom CSRF protection plug. It wraps the default plug provided
   # by `Plug`, it calls `Plug.Conn.fetch_session/1` (no-op if already
@@ -395,18 +361,59 @@ defmodule FunWithFlags.UI.Router do
       |> Plug.CSRFProtection.call(opts)
     rescue
       _e in ArgumentError ->
-        Logger.warning(
-          "CSRF protection won't work unless your host application uses the session plug"
-        )
-
+        Logger.warning("CSRF protection won't work unless your host application uses the session plug")
         conn
     end
   end
 
+
+  defp handle_import(conn) do
+    case conn.params do
+      %{"file" => %Plug.Upload{path: temp_path}, "mode" => mode_str} ->
+        case File.read(temp_path) do
+          {:ok, binary} ->
+            mode = parse_import_mode(mode_str)
+
+            case FunWithFlags.import_flags(binary, mode) do
+              {:ok, count} ->
+                redirect_to conn, "/settings?success=imported_#{count}"
+
+              {:error, reason} ->
+                assigns = %{
+                  conn: conn,
+                  import_disabled: @import_disabled,
+                  import_error_message: to_string(reason)
+                }
+
+                html_resp(conn, 400, Templates.settings(assigns))
+            end
+
+          {:error, posix_error} ->
+            assigns = %{
+              conn: conn,
+              import_disabled: @import_disabled,
+              import_error_message: "Failed to read uploaded file: #{posix_error}"
+            }
+
+            html_resp(conn, 400, Templates.settings(assigns))
+        end
+
+      _ ->
+        assigns = %{
+          conn: conn,
+          import_disabled: @import_disabled,
+          import_error_message: "No file uploaded or invalid form data"
+        }
+
+        html_resp(conn, 400, Templates.settings(assigns))
+    end
+  end
+
+
   defp parse_import_mode("clear"), do: :clear_and_import
   defp parse_import_mode("overwrite"), do: :import_and_overwrite
-  # Safe default
   defp parse_import_mode(_), do: :import_and_overwrite
+
 
   defp parse_success_message("imported_" <> count), do: "Successfully imported #{count} flags"
   defp parse_success_message(_), do: nil
