@@ -17,6 +17,10 @@
           <li class="nav-item active">
             <a class="nav-link" href="#"><%= html_escape(@name) %></a>
           </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/settings">settings</a>
+          </li>
         </ul>
 
         <a href="<%= path(@conn, "/new") %>" class="btn btn-secondary">New Flag</a>
