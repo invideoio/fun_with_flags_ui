@@ -32,6 +32,21 @@ defmodule FunWithFlags.UI.Router do
     System.get_env("APP_ENV") != "dev"
   end
 
+  defp get_audit_user_id(conn) do
+    header = FunWithFlags.Config.audit_log_user_id_header()
+    case Plug.Conn.get_req_header(conn, header) do
+      [user_id | _] -> user_id
+      _ -> nil
+    end
+  end
+
+  defp audit_opts(conn) do
+    case get_audit_user_id(conn) do
+      nil -> []
+      user_id -> [audit: [user_id: user_id]]
+    end
+  end
+
   @doc false
   def call(conn, opts) do
     conn = extract_namespace(conn, opts)
@@ -60,7 +75,7 @@ defmodule FunWithFlags.UI.Router do
 
     case Utils.validate_flag_name(conn, name) do
       :ok ->
-        case Utils.create_flag_with_name(name) do
+        case Utils.create_flag_with_name(name, audit_opts(conn)) do
           {:ok, _} -> redirect_to conn, "/flags/#{name}"
           _ -> html_resp(conn, 400, Templates.new(%{conn: conn, error_message: "Something went wrong!"}))
         end
@@ -101,7 +116,7 @@ defmodule FunWithFlags.UI.Router do
   delete "/flags/:name" do
     name
     |> String.to_existing_atom()
-    |> FunWithFlags.clear()
+    |> FunWithFlags.clear(audit_opts(conn))
 
     redirect_to conn, "/flags"
   end
@@ -114,9 +129,9 @@ defmodule FunWithFlags.UI.Router do
     flag_name = String.to_existing_atom(name)
 
     if enabled do
-      FunWithFlags.enable(flag_name)
+      FunWithFlags.enable(flag_name, audit_opts(conn))
     else
-      FunWithFlags.disable(flag_name)
+      FunWithFlags.disable(flag_name, audit_opts(conn))
     end
 
     redirect_to conn, "/flags/#{name}"
@@ -127,7 +142,7 @@ defmodule FunWithFlags.UI.Router do
   #
   delete "/flags/:name/boolean" do
     flag_name = String.to_existing_atom(name)
-    FunWithFlags.clear(flag_name, boolean: true)
+    FunWithFlags.clear(flag_name, [boolean: true] ++ audit_opts(conn))
     redirect_to conn, "/flags/#{name}"
   end
 
@@ -140,9 +155,9 @@ defmodule FunWithFlags.UI.Router do
     actor = %SimpleActor{id: actor_id}
 
     if enabled do
-      FunWithFlags.enable(flag_name, for_actor: actor)
+      FunWithFlags.enable(flag_name, [for_actor: actor] ++ audit_opts(conn))
     else
-      FunWithFlags.disable(flag_name, for_actor: actor)
+      FunWithFlags.disable(flag_name, [for_actor: actor] ++ audit_opts(conn))
     end
 
     redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
@@ -155,7 +170,7 @@ defmodule FunWithFlags.UI.Router do
     flag_name = String.to_existing_atom(name)
     actor = %SimpleActor{id: actor_id}
 
-    FunWithFlags.clear(flag_name, for_actor: actor)
+    FunWithFlags.clear(flag_name, [for_actor: actor] ++ audit_opts(conn))
     redirect_to conn, "/flags/#{name}#actor_gates"
   end
 
@@ -168,9 +183,9 @@ defmodule FunWithFlags.UI.Router do
     group_name = to_string(group_name)
 
     if enabled do
-      FunWithFlags.enable(flag_name, for_group: group_name)
+      FunWithFlags.enable(flag_name, [for_group: group_name] ++ audit_opts(conn))
     else
-      FunWithFlags.disable(flag_name, for_group: group_name)
+      FunWithFlags.disable(flag_name, [for_group: group_name] ++ audit_opts(conn))
     end
 
     redirect_to conn, "/flags/#{name}#group_#{group_name}"
@@ -183,7 +198,7 @@ defmodule FunWithFlags.UI.Router do
     flag_name = String.to_existing_atom(name)
     group_name = to_string(group_name)
 
-    FunWithFlags.clear(flag_name, for_group: group_name)
+    FunWithFlags.clear(flag_name, [for_group: group_name] ++ audit_opts(conn))
 
     redirect_to conn, "/flags/#{name}#group_gates"
   end
@@ -193,7 +208,7 @@ defmodule FunWithFlags.UI.Router do
   #
   delete "/flags/:name/percentage" do
     flag_name = String.to_existing_atom(name)
-    FunWithFlags.clear(flag_name, for_percentage: true)
+    FunWithFlags.clear(flag_name, [for_percentage: true] ++ audit_opts(conn))
     redirect_to conn, "/flags/#{name}"
   end
 
@@ -209,9 +224,9 @@ defmodule FunWithFlags.UI.Router do
         enabled = Utils.parse_bool(conn.params["enabled"])
         actor = %SimpleActor{id: actor_id}
         if enabled do
-          FunWithFlags.enable(flag_name, for_actor: actor)
+          FunWithFlags.enable(flag_name, [for_actor: actor] ++ audit_opts(conn))
         else
-          FunWithFlags.disable(flag_name, for_actor: actor)
+          FunWithFlags.disable(flag_name, [for_actor: actor] ++ audit_opts(conn))
         end
         redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
       {:fail, reason} ->
@@ -232,9 +247,9 @@ defmodule FunWithFlags.UI.Router do
       :ok ->
         enabled = Utils.parse_bool(conn.params["enabled"])
         if enabled do
-          FunWithFlags.enable(flag_name, for_group: group_name)
+          FunWithFlags.enable(flag_name, [for_group: group_name] ++ audit_opts(conn))
         else
-          FunWithFlags.disable(flag_name, for_group: group_name)
+          FunWithFlags.disable(flag_name, [for_group: group_name] ++ audit_opts(conn))
         end
         redirect_to conn, "/flags/#{name}#group_#{group_name}"
       {:fail, reason} ->
@@ -253,7 +268,7 @@ defmodule FunWithFlags.UI.Router do
 
     case Utils.parse_and_validate_float(conn.params["percent_value"]) do
       {:ok, float} ->
-        FunWithFlags.enable(flag_name, for_percentage_of: {type, float})
+        FunWithFlags.enable(flag_name, [for_percentage_of: {type, float}] ++ audit_opts(conn))
         redirect_to conn, "/flags/#{name}#percentage_gate"
       {:fail, reason} ->
         {:ok, flag} = Utils.get_flag(name)
@@ -281,7 +296,7 @@ defmodule FunWithFlags.UI.Router do
   # Export flags
   #
   post "/settings/export" do
-    case FunWithFlags.export_flags() do
+    case FunWithFlags.export_flags(user_id: get_audit_user_id(conn)) do
       {:ok, binary} ->
         timestamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d_%H-%M-%S")
         filename = "flags_export_#{System.get_env("APP_NAME") || "unknown_app"}_#{System.get_env("APP_ENV") || "unknown_env"}_#{timestamp}.etf"
@@ -376,7 +391,7 @@ defmodule FunWithFlags.UI.Router do
           {:ok, binary} ->
             mode = parse_import_mode(mode_str)
 
-            case FunWithFlags.import_flags(binary, mode) do
+            case FunWithFlags.import_flags(binary, mode, user_id: get_audit_user_id(conn)) do
               {:ok, count} ->
                 redirect_to conn, "/settings?success=imported_#{count}"
 

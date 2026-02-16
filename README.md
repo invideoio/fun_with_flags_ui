@@ -97,6 +97,20 @@ defmodule MyPhoenixAppWeb.Router do
 end
 ```
 
+## Audit Logging
+
+When [audit logging](https://github.com/tompave/fun_with_flags#audit-logging) is configured in `fun_with_flags`, the web dashboard automatically records all flag changes with the user who made them.
+
+The user identifier is extracted from an HTTP request header (configurable, defaults to `x-user-id`). Your host application or reverse proxy should set this header based on the authenticated user.
+
+```elixir
+config :fun_with_flags, :audit_logs,
+  repo: MyApp.Repo,
+  user_id_header: "X-User-Id"
+```
+
+No additional configuration is needed in the UI — it reads the audit log settings from the core `fun_with_flags` configuration.
+
 ## Caveats
 
 While the base `fun_with_flags` library is quite relaxed in terms of valid flag names, group names and actor identifers, this web dashboard extension applies some more restrictive rules.
