@@ -8,8 +8,6 @@ defmodule FunWithFlags.UI.Router do
   use Plug.Router
   alias FunWithFlags.UI.{SimpleActor, Templates, Utils}
 
-  @import_disabled Mix.env() == :prod
-
   if Mix.env == :dev do
     use Plug.Debugger, otp_app: :fun_with_flags_ui
   end
@@ -29,6 +27,10 @@ defmodule FunWithFlags.UI.Router do
   plug :assign_csrf_token
   plug :match
   plug :dispatch
+
+  defp import_disabled? do
+    System.get_env("APP_ENV") != "dev"
+  end
 
   @doc false
   def call(conn, opts) do
@@ -269,7 +271,7 @@ defmodule FunWithFlags.UI.Router do
     assigns = %{
       conn: conn,
       success_message: parse_success_message(success_message),
-      import_disabled: @import_disabled
+      import_disabled: import_disabled?()
     }
 
     html_resp(conn, 200, Templates.settings(assigns))
@@ -282,7 +284,7 @@ defmodule FunWithFlags.UI.Router do
     case FunWithFlags.export_flags() do
       {:ok, binary} ->
         timestamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d_%H-%M-%S")
-        filename = "flags_export_#{timestamp}.etf"
+        filename = "flags_export_#{System.get_env("APP_NAME") || "unknown_app"}_#{System.get_env("APP_ENV") || "unknown_env"}_#{timestamp}.etf"
 
         conn
         |> put_resp_content_type("application/octet-stream")
@@ -293,7 +295,7 @@ defmodule FunWithFlags.UI.Router do
         assigns = %{
           conn: conn,
           error_message: "Export failed: #{inspect(reason)}",
-          import_disabled: @import_disabled
+          import_disabled: import_disabled?()
         }
 
         html_resp(conn, 500, Templates.settings(assigns))
@@ -304,7 +306,7 @@ defmodule FunWithFlags.UI.Router do
   # Import flags
   #
   post "/settings/import" do
-    if @import_disabled do
+    if import_disabled?() do
       html_resp(conn, 403, Templates.settings(%{
         conn: conn,
         import_disabled: true,
@@ -381,7 +383,7 @@ defmodule FunWithFlags.UI.Router do
               {:error, reason} ->
                 assigns = %{
                   conn: conn,
-                  import_disabled: @import_disabled,
+                  import_disabled: import_disabled?(),
                   import_error_message: to_string(reason)
                 }
 
@@ -391,7 +393,7 @@ defmodule FunWithFlags.UI.Router do
           {:error, posix_error} ->
             assigns = %{
               conn: conn,
-              import_disabled: @import_disabled,
+              import_disabled: import_disabled?(),
               import_error_message: "Failed to read uploaded file: #{posix_error}"
             }
 
@@ -401,7 +403,7 @@ defmodule FunWithFlags.UI.Router do
       _ ->
         assigns = %{
           conn: conn,
-          import_disabled: @import_disabled,
+          import_disabled: import_disabled?(),
           import_error_message: "No file uploaded or invalid form data"
         }
 
