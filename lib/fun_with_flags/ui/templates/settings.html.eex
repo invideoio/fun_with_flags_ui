@@ -41,6 +41,26 @@
         </div>
       <% end %>
 
+      <!-- Theme Section -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>Theme</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="fwf-theme-select">Color scheme</label>
+            <select class="form-control" id="fwf-theme-select" style="max-width: 200px;">
+              <option value="system">System (auto)</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+            <small class="form-text text-muted">
+              Saved in your browser. "System" follows your OS preference.
+            </small>
+          </div>
+        </div>
+      </div>
+
       <!-- Export Section -->
       <div class="card mt-4">
         <div class="card-header">
@@ -176,5 +196,6 @@
         </div>
       </div>
     </div>
+    <script type="text/javascript" src="<%= path(@conn, "/assets/theme.js") %>"></script>
   </body>
 </html>
