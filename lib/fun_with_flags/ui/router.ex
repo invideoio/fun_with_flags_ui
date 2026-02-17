@@ -496,7 +496,8 @@ defmodule FunWithFlags.UI.Router do
             audit_total_pages: result.total_pages,
             audit_total: result.total,
             page_param: "audit_page",
-            pagination_base_path: Templates.path(conn, "/flags/#{Templates.url_safe(flag_name)}")
+            pagination_base_path: Templates.path(conn, "/flags/#{Templates.url_safe(flag_name)}"),
+            hide_flag_column: true
           ]
 
         {:error, _} ->

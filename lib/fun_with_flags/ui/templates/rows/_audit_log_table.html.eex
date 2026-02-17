@@ -1,4 +1,5 @@
 <% records = assigns[:audit_records] || [] %>
+<% show_flag = !assigns[:hide_flag_column] %>
 
 <%= if Enum.empty?(records) do %>
   <p class="text-muted">No audit log entries found.</p>
@@ -8,7 +9,9 @@
       <thead class="thead-default">
         <tr>
           <th>Timestamp</th>
-          <th>Flag</th>
+          <%= if show_flag do %>
+            <th>Flag</th>
+          <% end %>
           <th>User</th>
           <th>Action</th>
         </tr>
@@ -21,15 +24,17 @@
                 <%= format_utc_timestamp(record.inserted_at) %> UTC
               </span>
             </td>
-            <td>
-              <%= if record.flag_name do %>
-                <a href="<%= path(@conn, "/flags/#{url_safe(record.flag_name)}") %>">
-                  <%= html_escape(record.flag_name) %>
-                </a>
-              <% else %>
-                <span class="text-muted">(bulk operation)</span>
-              <% end %>
-            </td>
+            <%= if show_flag do %>
+              <td>
+                <%= if record.flag_name do %>
+                  <a href="<%= path(@conn, "/flags/#{url_safe(record.flag_name)}") %>">
+                    <%= html_escape(record.flag_name) %>
+                  </a>
+                <% else %>
+                  <span class="text-muted">(bulk operation)</span>
+                <% end %>
+              </td>
+            <% end %>
             <td>
               <%= if record.user_id do %>
                 <%= html_escape(record.user_id) %>
