@@ -1,0 +1,17 @@
+<div id="audit_log" class="row mb-3">
+  <div class="col">
+    <div class="card">
+      <h5 class="card-header">
+        Audit Log
+      </h5>
+      <div class="card-body">
+        <%= if assigns[:audit_disabled] do %>
+          <p class="text-muted">Audit logging is not enabled.</p>
+        <% else %>
+          <%= _audit_log_table(assigns) %>
+          <%= _audit_log_pagination(assigns) %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

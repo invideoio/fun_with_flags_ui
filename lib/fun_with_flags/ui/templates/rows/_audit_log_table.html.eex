@@ -1,0 +1,46 @@
+<% records = assigns[:audit_records] || [] %>
+
+<%= if Enum.empty?(records) do %>
+  <p class="text-muted">No audit log entries found.</p>
+<% else %>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm">
+      <thead class="thead-default">
+        <tr>
+          <th>Timestamp</th>
+          <th>Flag</th>
+          <th>User</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <%= for record <- records do %>
+          <tr>
+            <td>
+              <span class="fwf-utc-timestamp" data-utc="<%= format_utc_timestamp(record.inserted_at) %>">
+                <%= format_utc_timestamp(record.inserted_at) %> UTC
+              </span>
+            </td>
+            <td>
+              <%= if record.flag_name do %>
+                <a href="<%= path(@conn, "/flags/#{url_safe(record.flag_name)}") %>">
+                  <%= html_escape(record.flag_name) %>
+                </a>
+              <% else %>
+                <span class="text-muted">(bulk operation)</span>
+              <% end %>
+            </td>
+            <td>
+              <%= if record.user_id do %>
+                <%= html_escape(record.user_id) %>
+              <% else %>
+                <span class="text-muted">-</span>
+              <% end %>
+            </td>
+            <td><%= describe_audit_record(record) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

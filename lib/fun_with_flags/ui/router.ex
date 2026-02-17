@@ -102,7 +102,8 @@ defmodule FunWithFlags.UI.Router do
   get "/flags/:name" do
     case Utils.get_flag(name) do
       {:ok, flag} ->
-        body = Templates.details(conn: conn, flag: flag)
+        audit_assigns = fetch_flag_audit_logs(conn, name, conn.query_params)
+        body = Templates.details([conn: conn, flag: flag] ++ audit_assigns)
         html_resp(conn, 200, body)
       {:error, _} ->
         body = Templates.not_found(conn: conn, name: name)
@@ -278,6 +279,37 @@ defmodule FunWithFlags.UI.Router do
   end
 
 
+  # Audit logs page
+  #
+  get "/audit_logs" do
+    if audit_log_viewing_available?() do
+      flag_name = Map.get(conn.query_params, "flag_name")
+      page = parse_page(Map.get(conn.query_params, "page"))
+
+      opts = [page: page, per_page: 25]
+      opts = if flag_name && flag_name != "", do: Keyword.put(opts, :flag_name, flag_name), else: opts
+
+      case FunWithFlags.audit_log_entries(opts) do
+        {:ok, result} ->
+          assigns = %{
+            conn: conn,
+            audit_records: result.records,
+            audit_page: result.page,
+            audit_total_pages: result.total_pages,
+            audit_total: result.total,
+            search_flag_name: flag_name
+          }
+          html_resp(conn, 200, Templates.audit_logs(assigns))
+
+        {:error, _} ->
+          html_resp(conn, 200, Templates.audit_logs(%{conn: conn, audit_disabled: true}))
+      end
+    else
+      html_resp(conn, 200, Templates.audit_logs(%{conn: conn, audit_disabled: true}))
+    end
+  end
+
+
   # Settings page
   #
   get "/settings" do
@@ -434,4 +466,44 @@ defmodule FunWithFlags.UI.Router do
 
   defp parse_success_message("imported_" <> count), do: "Successfully imported #{count} flags"
   defp parse_success_message(_), do: nil
+
+
+  defp audit_log_viewing_available? do
+    Code.ensure_loaded?(FunWithFlags.AuditLog) and
+      function_exported?(FunWithFlags.AuditLog, :list, 1)
+  end
+
+
+  defp parse_page(nil), do: 1
+  defp parse_page(str) when is_binary(str) do
+    case Integer.parse(str) do
+      {n, _} when n > 0 -> n
+      _ -> 1
+    end
+  end
+  defp parse_page(_), do: 1
+
+
+  defp fetch_flag_audit_logs(conn, flag_name, query_params) do
+    if audit_log_viewing_available?() do
+      page = parse_page(Map.get(query_params, "audit_page"))
+
+      case FunWithFlags.audit_log_entries_for_flag(flag_name, page: page, per_page: 10) do
+        {:ok, result} ->
+          [
+            audit_records: result.records,
+            audit_page: result.page,
+            audit_total_pages: result.total_pages,
+            audit_total: result.total,
+            page_param: "audit_page",
+            pagination_base_path: Templates.path(conn, "/flags/#{Templates.url_safe(flag_name)}")
+          ]
+
+        {:error, _} ->
+          [audit_disabled: true]
+      end
+    else
+      [audit_disabled: true]
+    end
+  end
 end

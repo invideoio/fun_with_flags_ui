@@ -80,3 +80,18 @@ button {
   }
 }
 
+.fwf-utc-timestamp {
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+.pagination {
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #714a94;
+  border-color: #714a94;
+}
+

@@ -19,6 +19,10 @@
           </li>
 
           <li class="nav-item">
+            <a class="nav-link" href="<%= path(@conn, "/audit_logs") %>">audit logs</a>
+          </li>
+
+          <li class="nav-item">
             <a class="nav-link" href="<%= path(@conn, "/settings") %>">settings</a>
           </li>
         </ul>
@@ -127,6 +131,8 @@
         </div>
       </div>
 
+      <%= _audit_log_section(assigns) %>
+
       <div id="danger_zone" class="row mb-3">
         <div class="col">
           <div class="card">
@@ -145,5 +151,6 @@
       </div>
     </div>
     <script type="text/javascript" src="<%= path(@conn, "/assets/details.js") %>"></script>
+    <script type="text/javascript" src="<%= path(@conn, "/assets/audit_logs.js") %>"></script>
   </body>
 </html>

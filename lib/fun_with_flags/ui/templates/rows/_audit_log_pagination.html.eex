@@ -1,0 +1,42 @@
+<% page = assigns[:audit_page] || 1 %>
+<% total_pages = assigns[:audit_total_pages] || 1 %>
+<% total = assigns[:audit_total] || 0 %>
+
+<%= if total_pages > 1 do %>
+  <nav aria-label="Audit log pagination">
+    <ul class="pagination">
+      <%= if page > 1 do %>
+        <li class="page-item">
+          <a class="page-link" href="<%= audit_log_page_path(@conn, page - 1, assigns) %>">Previous</a>
+        </li>
+      <% else %>
+        <li class="page-item disabled">
+          <span class="page-link">Previous</span>
+        </li>
+      <% end %>
+
+      <%= for p <- pagination_range(page, total_pages) do %>
+        <%= if p == :ellipsis do %>
+          <li class="page-item disabled">
+            <span class="page-link">&hellip;</span>
+          </li>
+        <% else %>
+          <li class="page-item <%= if p == page, do: "active" %>">
+            <a class="page-link" href="<%= audit_log_page_path(@conn, p, assigns) %>"><%= p %></a>
+          </li>
+        <% end %>
+      <% end %>
+
+      <%= if page < total_pages do %>
+        <li class="page-item">
+          <a class="page-link" href="<%= audit_log_page_path(@conn, page + 1, assigns) %>">Next</a>
+        </li>
+      <% else %>
+        <li class="page-item disabled">
+          <span class="page-link">Next</span>
+        </li>
+      <% end %>
+    </ul>
+  </nav>
+  <p class="text-muted"><small>Total: <%= total %> entries</small></p>
+<% end %>

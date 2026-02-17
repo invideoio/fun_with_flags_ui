@@ -3,7 +3,7 @@ defmodule FunWithFlags.UI.Templates do
 
   require EEx
   alias FunWithFlags.Flag
-  alias FunWithFlags.UI.Utils
+  alias FunWithFlags.UI.{AuditLogFormatter, Utils}
   import FunWithFlags.UI.HTMLEscape, only: [html_escape: 1]
 
   @templates [
@@ -20,6 +20,10 @@ defmodule FunWithFlags.UI.Templates do
     _new_actor_row: "rows/_new_actor",
     _new_group_row: "rows/_new_group",
     _percentage_form_row: "rows/_percentage_form",
+    audit_logs: "audit_logs",
+    _audit_log_table: "rows/_audit_log_table",
+    _audit_log_pagination: "rows/_audit_log_pagination",
+    _audit_log_section: "rows/_audit_log_section",
   ]
 
   for {fn_name, file_name} <- @templates do
@@ -82,5 +86,49 @@ defmodule FunWithFlags.UI.Templates do
     val
     |> to_string()
     |> URI.encode()
+  end
+
+
+  def describe_audit_record(record) do
+    AuditLogFormatter.describe(record)
+  end
+
+  def format_utc_timestamp(%DateTime{} = dt) do
+    Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
+  end
+
+  def format_utc_timestamp(nil), do: ""
+
+  def audit_log_page_path(conn, page, assigns) do
+    page_param = assigns[:page_param] || "page"
+    base_path = assigns[:pagination_base_path] || path(conn, "/audit_logs")
+
+    params = %{page_param => page}
+
+    # Preserve search flag_name for the dedicated audit logs page
+    params =
+      case assigns[:search_flag_name] do
+        nil -> params
+        "" -> params
+        name -> Map.put(params, "flag_name", name)
+      end
+
+    query = URI.encode_query(params)
+    "#{base_path}?#{query}"
+  end
+
+  def pagination_range(_current, total) when total <= 7 do
+    Enum.to_list(1..total)
+  end
+
+  def pagination_range(current, total) do
+    cond do
+      current <= 4 ->
+        Enum.to_list(1..5) ++ [:ellipsis, total]
+      current >= total - 3 ->
+        [1, :ellipsis] ++ Enum.to_list((total - 4)..total)
+      true ->
+        [1, :ellipsis] ++ Enum.to_list((current - 1)..(current + 1)) ++ [:ellipsis, total]
+    end
   end
 end
