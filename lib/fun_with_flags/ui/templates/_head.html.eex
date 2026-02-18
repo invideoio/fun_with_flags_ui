@@ -2,6 +2,21 @@
   <meta charset="utf-8">
   <title>FunWithFlags - <%= @title %></title>
 
+  <script>
+    // Apply theme immediately to prevent flash of wrong theme
+    (function() {
+      var saved = null;
+      try { saved = localStorage.getItem("fwf-theme"); } catch(e) {}
+      var theme = "light";
+      if (saved === "dark" || saved === "light") {
+        theme = saved;
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        theme = "dark";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+
   <link rel="stylesheet" href="<%= path(@conn, "/assets/bootstrap.min.css") %>">
   <link rel="stylesheet" href="<%= path(@conn, "/assets/style.css") %>">
 </head>

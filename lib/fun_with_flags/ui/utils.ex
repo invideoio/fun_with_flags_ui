@@ -65,10 +65,10 @@ defmodule FunWithFlags.UI.Utils do
   # to be used anyway, and to be fair filling the persistent store with
   # unneeded data is a bigger concern.
   #
-  def create_flag_with_name(name) do
+  def create_flag_with_name(name, opts \\ []) do
     name
     |> String.to_atom()
-    |> FunWithFlags.disable()
+    |> FunWithFlags.disable(opts)
   end
 
 
