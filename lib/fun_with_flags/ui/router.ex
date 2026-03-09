@@ -89,8 +89,9 @@ defmodule FunWithFlags.UI.Router do
   #
   get "/flags" do
     {:ok, flags} = FunWithFlags.all_flags
-    flags = Utils.sort_flags(flags)
-    body = Templates.index(conn: conn, flags: flags)
+    sort = conn.params["sort"] || "name_asc"
+    flags = Utils.sort_flags(flags, sort)
+    body = Templates.index(conn: conn, flags: flags, sort: sort)
 
     conn
     |> html_resp(200, body)

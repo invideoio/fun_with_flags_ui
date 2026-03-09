@@ -33,11 +33,43 @@ defmodule FunWithFlags.UI.Utils do
   end
 
 
-  def sort_flags(flags) do
-    Enum.sort(flags, &sorter/2)
+  def sort_flags(flags, sort \\ "name_asc")
+
+  def sort_flags(flags, "name_asc") do
+    Enum.sort_by(flags, & &1.name)
   end
 
-  defp sorter(a, b) do
+  def sort_flags(flags, "name_desc") do
+    Enum.sort_by(flags, & &1.name, :desc)
+  end
+
+  def sort_flags(flags, "created_asc") do
+    {with_ts, without_ts} = Enum.split_with(flags, & &1.created_at)
+    sorted_with_ts = Enum.sort_by(with_ts, & &1.created_at, {:asc, DateTime})
+    sorted_without_ts = Enum.sort_by(without_ts, & &1.name)
+    sorted_with_ts ++ sorted_without_ts
+  end
+
+  def sort_flags(flags, "created_desc") do
+    {with_ts, without_ts} = Enum.split_with(flags, & &1.created_at)
+    sorted_with_ts = Enum.sort_by(with_ts, & &1.created_at, {:desc, DateTime})
+    sorted_without_ts = Enum.sort_by(without_ts, & &1.name)
+    sorted_with_ts ++ sorted_without_ts
+  end
+
+  def sort_flags(flags, "status_asc") do
+    Enum.sort(flags, &status_sorter/2)
+  end
+
+  def sort_flags(flags, "status_desc") do
+    Enum.sort(flags, fn a, b -> status_sorter(b, a) end)
+  end
+
+  def sort_flags(flags, _) do
+    Enum.sort_by(flags, & &1.name)
+  end
+
+  defp status_sorter(a, b) do
     sa = get_flag_status(a)
     sb = get_flag_status(b)
 

@@ -29,9 +29,16 @@
           <table class="table table-hover">
             <thead class="thead-default">
               <tr>
-                <th>name</th>
-                <th>status</th>
+                <th class="fwf-sortable" data-sort-asc="name_asc" data-sort-desc="name_desc" style="cursor: pointer; user-select: none;">
+                  name <%= if @sort == "name_asc" do %>&uarr;<% end %><%= if @sort == "name_desc" do %>&darr;<% end %>
+                </th>
+                <th class="fwf-sortable" data-sort-asc="status_asc" data-sort-desc="status_desc" style="cursor: pointer; user-select: none;">
+                  status <%= if @sort == "status_asc" do %>&uarr;<% end %><%= if @sort == "status_desc" do %>&darr;<% end %>
+                </th>
                 <th>gates</th>
+                <th class="fwf-sortable" data-sort-asc="created_asc" data-sort-desc="created_desc" style="cursor: pointer; user-select: none;">
+                  created <%= if @sort == "created_asc" do %>&uarr;<% end %><%= if @sort == "created_desc" do %>&darr;<% end %>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -49,6 +56,10 @@
 
                   <td>
                     <%= html_gate_list(flag) %>
+                  </td>
+
+                  <td>
+                    <%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "-" %>
                   </td>
                 </tr>
               <% end %>
@@ -75,10 +86,43 @@
                 <strong>Gates:</strong>
                 <%= html_gate_list(flag) %>
               </div>
+              <div>
+                <strong>Created:</strong>
+                <%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "-" %>
+              </div>
             </div>
           </div>
         </div>
       <% end %>
     </div>
+    <script>
+      (function() {
+        var sort = '<%= @sort %>';
+        var stored = localStorage.getItem('fwf-sort');
+
+        if (stored && stored !== sort && !new URLSearchParams(window.location.search).has('sort')) {
+          var url = new URL(window.location);
+          url.searchParams.set('sort', stored);
+          window.location = url.toString();
+          return;
+        }
+
+        if (sort !== 'status') {
+          localStorage.setItem('fwf-sort', sort);
+        }
+
+        document.querySelectorAll('.fwf-sortable').forEach(function(th) {
+          th.addEventListener('click', function() {
+            var ascKey = this.dataset.sortAsc;
+            var descKey = this.dataset.sortDesc;
+            var next = (sort === ascKey) ? descKey : ascKey;
+            localStorage.setItem('fwf-sort', next);
+            var url = new URL(window.location);
+            url.searchParams.set('sort', next);
+            window.location = url.toString();
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
