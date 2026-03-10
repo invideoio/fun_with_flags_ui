@@ -97,6 +97,10 @@ defmodule FunWithFlags.UI.Templates do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
   end
 
+  def format_utc_timestamp(%NaiveDateTime{} = ndt) do
+    Calendar.strftime(ndt, "%Y-%m-%d %H:%M:%S")
+  end
+
   def format_utc_timestamp(nil), do: ""
 
   def audit_log_page_path(conn, page, assigns) do

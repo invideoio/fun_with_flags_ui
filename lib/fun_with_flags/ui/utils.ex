@@ -34,28 +34,8 @@ defmodule FunWithFlags.UI.Utils do
 
 
   def sort_flags(flags) do
-    Enum.sort(flags, &sorter/2)
+    Enum.sort_by(flags, & &1.name)
   end
-
-  defp sorter(a, b) do
-    sa = get_flag_status(a)
-    sb = get_flag_status(b)
-
-    if sa == sb do
-      a.name < b.name
-    else
-      case sa do
-        :fully_open -> true
-        :half_open ->
-          case sb do
-            :fully_open -> false
-            :closed -> true
-          end
-        :closed -> false
-      end
-    end
-  end
-
 
   # Create new flags as disabled.
   #
@@ -233,4 +213,5 @@ defmodule FunWithFlags.UI.Utils do
     |> List.last()
     |> String.length()
   end
+
 end

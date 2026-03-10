@@ -52,7 +52,7 @@ defmodule FunWithFlags.UI.UtilsTest do
 
 
   describe "sort_flags(flags)" do
-    test "it sorts the flag by status, then by name" do
+    test "it sorts the flags by name" do
       a = %Flag{name: :aaa, gates: [Gate.new(:group, :people, true)]}
       b = %Flag{name: :bbb, gates: []}
       c = %Flag{name: :ccc, gates: [Gate.new(:group, :people, true)]}
@@ -64,7 +64,7 @@ defmodule FunWithFlags.UI.UtilsTest do
       i = %Flag{name: :iii, gates: [Gate.new(:boolean, true)]}
 
       input  = [i, h, g, f, e, d, c, b, a]
-      output = [d, g, i, a, c, f, b, e, h]
+      output = [a, b, c, d, e, f, g, h, i]
 
       assert ^output = Utils.sort_flags(input)
     end

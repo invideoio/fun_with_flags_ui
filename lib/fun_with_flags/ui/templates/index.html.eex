@@ -26,17 +26,26 @@
     <div class="container mt-3">
       <div class="row d-none d-md-flex">
         <div class="col">
-          <table class="table table-hover">
+          <table class="table table-hover" id="fwf-flags-table">
             <thead class="thead-default">
               <tr>
-                <th>name</th>
-                <th>status</th>
+                <th class="fwf-sortable" data-sort-key="name" style="cursor: pointer; user-select: none;">
+                  name <span class="fwf-sort-arrow" data-col="name"></span>
+                </th>
+                <th class="fwf-sortable" data-sort-key="status" style="cursor: pointer; user-select: none;">
+                  status <span class="fwf-sort-arrow" data-col="status"></span>
+                </th>
                 <th>gates</th>
+                <th class="fwf-sortable" data-sort-key="created" style="cursor: pointer; user-select: none;">
+                  created <span class="fwf-sort-arrow" data-col="created"></span>
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="fwf-flags-tbody">
               <%= for flag <- @flags do %>
-                <tr>
+                <tr data-name="<%= html_escape(flag.name) %>"
+                    data-status="<%= Utils.get_flag_status(flag) %>"
+                    data-created="<%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "" %>">
                   <td>
                     <a href="<%= path(@conn, "/flags/#{url_safe(flag.name)}") %>">
                       <%= html_escape(flag.name) %>
@@ -50,6 +59,10 @@
                   <td>
                     <%= html_gate_list(flag) %>
                   </td>
+
+                  <td class="fwf-created-at">
+                    🦖
+                  </td>
                 </tr>
               <% end %>
             </tbody>
@@ -57,9 +70,12 @@
         </div>
       </div>
     </div>
-    <div class="container d-flex flex-column d-md-none">
+    <div class="container d-flex flex-column d-md-none" id="fwf-flags-cards">
       <%= for flag <- @flags do %>
-        <div class="card mb-3">
+        <div class="card mb-3"
+             data-name="<%= html_escape(flag.name) %>"
+             data-status="<%= Utils.get_flag_status(flag) %>"
+             data-created="<%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "" %>">
           <div class="card-body">
             <h5 class="card-title">
               <a href="<%= path(@conn, "/flags/#{url_safe(flag.name)}") %>">
@@ -75,10 +91,120 @@
                 <strong>Gates:</strong>
                 <%= html_gate_list(flag) %>
               </div>
+              <div>
+                <strong>Created:</strong>
+                <span class="fwf-created-at">🦖</span>
+              </div>
             </div>
           </div>
         </div>
       <% end %>
     </div>
+    <script>
+      (function() {
+        var STATUS_ORDER = {fully_open: 0, half_open: 1, closed: 2};
+
+        function getSort() {
+          try { return localStorage.getItem('fwf-sort') || 'name_asc'; } catch(e) { return 'name_asc'; }
+        }
+
+        function setSort(s) {
+          try { localStorage.setItem('fwf-sort', s); } catch(e) {}
+        }
+
+        function compareName(a, b) {
+          return a.dataset.name.localeCompare(b.dataset.name);
+        }
+
+        function compareStatus(a, b) {
+          var sa = STATUS_ORDER[a.dataset.status] || 0;
+          var sb = STATUS_ORDER[b.dataset.status] || 0;
+          return sa - sb || compareName(a, b);
+        }
+
+        function compareCreated(a, b, dir) {
+          var ca = a.dataset.created;
+          var cb = b.dataset.created;
+          if (!ca && !cb) return compareName(a, b);
+          if (!ca) return 1;
+          if (!cb) return -1;
+          var r = ca < cb ? -1 : ca > cb ? 1 : 0;
+          return dir === 'desc' ? -r : r;
+        }
+
+        function sortElements(container, elements, sortKey) {
+          var parts = sortKey.match(/^(.+)_(asc|desc)$/);
+          if (!parts) return;
+          var col = parts[1], dir = parts[2];
+
+          var arr = Array.from(elements);
+          if (col === 'created') {
+            arr.sort(function(a, b) { return compareCreated(a, b, dir); });
+          } else {
+            var cmp = col === 'name' ? compareName : compareStatus;
+            arr.sort(function(a, b) {
+              var r = cmp(a, b);
+              return dir === 'desc' ? -r : r;
+            });
+          }
+          arr.forEach(function(el) { container.appendChild(el); });
+        }
+
+        function updateArrows(sortKey) {
+          var parts = sortKey.match(/^(.+)_(asc|desc)$/);
+          document.querySelectorAll('.fwf-sort-arrow').forEach(function(span) {
+            if (parts && span.dataset.col === parts[1]) {
+              span.innerHTML = parts[2] === 'asc' ? '&uarr;' : '&darr;';
+            } else {
+              span.innerHTML = '';
+            }
+          });
+        }
+
+        function applySort(sortKey) {
+          var tbody = document.getElementById('fwf-flags-tbody');
+          if (tbody) sortElements(tbody, tbody.querySelectorAll('tr'), sortKey);
+
+          var cards = document.getElementById('fwf-flags-cards');
+          if (cards) sortElements(cards, cards.querySelectorAll('.card'), sortKey);
+
+          updateArrows(sortKey);
+        }
+
+        // Format UTC timestamps to local time
+        document.querySelectorAll('[data-created]').forEach(function(el) {
+          var utc = el.dataset.created;
+          if (utc) {
+            var cell = el.querySelector('.fwf-created-at');
+            if (cell) {
+              var d = new Date(utc + ' UTC');
+              var day = d.getDate();
+              var month = d.toLocaleString(undefined, {month: 'short'});
+              var year = d.getFullYear();
+              var hour = d.getHours();
+              var ampm = hour >= 12 ? 'PM' : 'AM';
+              hour = hour % 12 || 12;
+              var min = d.getMinutes().toString().padStart(2, '0');
+              cell.textContent = day + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ' ' + ampm;
+            }
+          }
+        });
+
+        // Apply stored sort
+        var current = getSort();
+        applySort(current);
+
+        // Click handlers
+        document.querySelectorAll('.fwf-sortable').forEach(function(th) {
+          th.addEventListener('click', function() {
+            var col = this.dataset.sortKey;
+            var cur = getSort();
+            var next = (cur === col + '_asc') ? col + '_desc' : col + '_asc';
+            setSort(next);
+            applySort(next);
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
