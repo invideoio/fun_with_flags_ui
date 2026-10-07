@@ -2,200 +2,109 @@
 <html lang="en">
   <%= _head(conn: @conn, title: "Settings") %>
   <body>
-    <nav id="fwf-top-bar" class="navbar navbar-inverse navbar-toggleable-xl">
-      <a class="navbar-brand" href="https://github.com/tompave/fun_with_flags">FunWithFlags</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/flags") %>">all flags</a>
-          </li>
+    <%= _header(conn: @conn, active: :settings) %>
 
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/audit_logs") %>">audit logs</a>
-          </li>
-
-          <li class="nav-item active">
-            <a class="nav-link" href="">settings</a>
-          </li>
-        </ul>
-
-        <a href="<%= path(@conn, "/new") %>" class="btn btn-secondary">New Flag</a>
+    <main class="fwf-page fwf-page--narrow">
+      <div class="fwf-page-head">
+        <h1>Settings</h1>
       </div>
-    </nav>
 
-    <div class="container mt-3">
-      <h1>Settings</h1>
-
-      <%= if Map.get(assigns, :success_message) do %>
-        <div class="alert alert-success alert-dismissible" role="alert">
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-          <%= html_escape(@success_message) %>
-        </div>
-      <% end %>
-
-      <%= if Map.get(assigns, :error_message) do %>
-        <div class="alert alert-danger" role="alert">
-          <%= html_escape(@error_message) %>
-        </div>
-      <% end %>
-
-      <!-- Theme Section -->
-      <div class="card mt-4">
-        <div class="card-header">
-          <h3>Theme</h3>
-        </div>
-        <div class="card-body">
-          <div class="form-group">
-            <label for="fwf-theme-select">Color scheme</label>
-            <select class="form-control" id="fwf-theme-select" style="max-width: 200px;">
-              <option value="system">System (auto)</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-            <small class="form-text text-muted">
-              Saved in your browser. "System" follows your OS preference.
-            </small>
+      <div class="fwf-stack">
+        <%= if Map.get(assigns, :success_message) do %>
+          <div class="fwf-banner fwf-banner--success" role="status">
+            <p><%= html_escape(@success_message) %></p>
+            <a href="<%= path(@conn, "/settings") %>" class="fwf-banner-close" aria-label="Dismiss"><%= icon(@conn, "cancel") %></a>
           </div>
-        </div>
-      </div>
+        <% end %>
 
-      <!-- Export Section -->
-      <div class="card mt-4">
-        <div class="card-header">
-          <h3>Export Flags</h3>
-        </div>
-        <div class="card-body">
-          <p>
-            Download all feature flags with their gates as a binary file.
-            The file can be imported later to restore flags.
-          </p>
-          <p class="text-muted">
-            <small>File format: Erlang Term Format (.etf)</small>
-          </p>
+        <%= if Map.get(assigns, :error_message) do %>
+          <div class="fwf-banner fwf-banner--danger" role="alert">
+            <p><%= html_escape(@error_message) %></p>
+          </div>
+        <% end %>
 
+        <section class="fwf-card fwf-settings-section" aria-labelledby="fwf-h-theme">
+          <h2 id="fwf-h-theme">Theme</h2>
+          <p>Saved in this browser. "System" follows your OS.</p>
+          <div class="fwf-seg" role="radiogroup" aria-label="Color scheme" id="fwf-theme-choice">
+            <label><input type="radio" name="fwf-theme" value="system" checked><%= icon(@conn, "computer") %>System</label>
+            <label><input type="radio" name="fwf-theme" value="light"><%= icon(@conn, "sun") %>Light</label>
+            <label><input type="radio" name="fwf-theme" value="dark"><%= icon(@conn, "moon") %>Dark</label>
+          </div>
+        </section>
+
+        <section class="fwf-card fwf-settings-section" aria-labelledby="fwf-h-export">
+          <h2 id="fwf-h-export">Export flags</h2>
+          <p>Download every flag and its gates as one file (Erlang Term Format, <code>.etf</code>). It can be imported later to restore them.</p>
           <form action="<%= path(@conn, "/settings/export") %>" method="post">
             <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
-            <button type="submit" class="btn btn-primary">
-              <span class="glyphicon glyphicon-download-alt"></span>
-              Export All Flags
-            </button>
+            <button type="submit" class="fwf-btn">Export all flags</button>
           </form>
-        </div>
-      </div>
+        </section>
 
-      <!-- Import Section -->
-      <div class="card mt-4">
-        <div class="card-header">
-          <h3>Import Flags</h3>
-        </div>
-        <div class="card-body">
-          <%= if Map.get(assigns, :import_error_message) do %>
-            <div class="alert alert-danger" role="alert">
-              <strong>Import failed:</strong> <%= html_escape(@import_error_message) %>
-            </div>
-          <% end %>
-
-          <p>
-            Upload a flags export file (.etf) to restore feature flags.
-          </p>
-
+        <section class="fwf-card fwf-settings-section" aria-labelledby="fwf-h-import">
+          <h2 id="fwf-h-import">Import flags</h2>
           <%= if @import_disabled do %>
-            <div class="alert alert-warning" role="alert">
-              Import is disabled in production.
+            <%!-- The rule is APP_ENV != "dev" (Router.import_disabled?/0): one
+                line, no form that can't be used. --%>
+            <p class="fwf-import-off">Import is only available in development.</p>
+          <% else %>
+            <p>Restore flags from an export file (<code>.etf</code>, up to 10 MB and 10,000 flags).</p>
+
+            <div class="fwf-stack">
+              <%= if Map.get(assigns, :import_error_message) do %>
+                <div class="fwf-banner fwf-banner--danger" role="alert">
+                  <p><strong>Import failed:</strong> <%= html_escape(@import_error_message) %></p>
+                </div>
+              <% end %>
+
+              <form action="<%= path(@conn, "/settings/import") %>" method="post" enctype="multipart/form-data" class="fwf-stack">
+                <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+
+                <div class="fwf-field">
+                  <label class="fwf-label" for="file">File</label>
+                  <input type="file" class="fwf-file" id="file" name="file" accept=".etf" required>
+                </div>
+
+                <fieldset class="fwf-field fwf-fieldset">
+                  <legend class="fwf-label">Mode</legend>
+                  <label class="fwf-radio-card" for="mode-overwrite">
+                    <input type="radio" name="mode" value="overwrite" id="mode-overwrite" checked>
+                    <span><strong>Import and overwrite</strong><small>Flags in the file replace flags with the same name. Other flags are left alone.</small></span>
+                  </label>
+                  <label class="fwf-radio-card" for="mode-clear">
+                    <input type="radio" name="mode" value="clear" id="mode-clear">
+                    <span><strong>Clear and import</strong> <span class="fwf-danger-text">(destructive)</span><small>Deletes every existing flag first, then imports the file.</small></span>
+                  </label>
+                </fieldset>
+
+                <div>
+                  <button type="submit" class="fwf-btn fwf-btn--primary">Import flags</button>
+                </div>
+              </form>
             </div>
           <% end %>
+        </section>
 
-          <form action="<%= path(@conn, "/settings/import") %>"
-                method="post"
-                enctype="multipart/form-data">
-            <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
-
-            <div class="form-group">
-              <label for="file">Select File</label>
-              <input type="file"
-                     class="form-control"
-                     id="file"
-                     name="file"
-                     accept=".etf"
-                     required
-                     <%= if @import_disabled, do: "disabled" %>>
-              <small class="form-text text-muted">
-                Maximum file size: 10 MB. Maximum flags: 10,000.
-              </small>
-            </div>
-
-            <div class="form-group">
-              <label>Import Mode</label>
-
-              <div class="form-check" style="padding-left: 0;">
-                <label class="form-check-label" for="mode-overwrite" style="display: inline-flex; align-items: flex-start; gap: 8px;">
-                  <input class="form-check-input" type="radio" name="mode" value="overwrite" id="mode-overwrite" checked style="margin-top: 2px;" <%= if @import_disabled, do: "disabled" %>>
-                  <span>
-                    <strong>Import and Overwrite</strong>
-                    <br>
-                    <small class="text-muted">
-                      Import flags from the file. Existing flags with the same name
-                      will be overwritten. Other flags remain unchanged.
-                    </small>
-                  </span>
-                </label>
-              </div>
-
-              <div class="form-check mt-2" style="padding-left: 0;">
-                <label class="form-check-label" for="mode-clear" style="display: inline-flex; align-items: flex-start; gap: 8px;">
-                  <input class="form-check-input" type="radio" name="mode" value="clear" id="mode-clear" style="margin-top: 2px;" <%= if @import_disabled, do: "disabled" %>>
-                  <span>
-                    <strong>Clear and Import</strong>
-                    <span class="text-danger">(Destructive!)</span>
-                    <br>
-                    <small class="text-muted">
-                      Delete ALL existing flags first, then import.
-                      Use this to completely replace your flags with the import file.
-                    </small>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary" <%= if @import_disabled, do: "disabled" %>>
-              <span class="glyphicon glyphicon-upload"></span>
-              Import Flags
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Documentation Section -->
-      <div class="card mt-4 mb-4">
-        <div class="card-header bg-info text-white">
-          <h3>About Import/Export</h3>
-        </div>
-        <div class="card-body">
-          <h4>Use Cases</h4>
+        <details class="fwf-card fwf-settings-section fwf-about">
+          <summary>About import and export</summary>
+          <h3>Use cases</h3>
           <ul>
-            <li><strong>Backup:</strong> Regular exports for disaster recovery</li>
-            <li><strong>Migration:</strong> Move flags between environments</li>
-            <li><strong>Versioning:</strong> Save flag configurations at specific points in time</li>
+            <li><strong>Backup:</strong> regular exports for disaster recovery</li>
+            <li><strong>Migration:</strong> move flags between environments</li>
+            <li><strong>Versioning:</strong> keep flag configurations from specific points in time</li>
           </ul>
-
-          <h4>Safety Features</h4>
+          <h3>Safety</h3>
           <ul>
-            <li>All imports are atomic (all-or-nothing)</li>
-            <li>File validation prevents corrupted data</li>
-            <li>Maximum limits prevent resource exhaustion</li>
-            <li>Audit events logged via telemetry</li>
+            <li>Imports are atomic (all or nothing)</li>
+            <li>Files are validated before anything is written</li>
+            <li>Size and count limits prevent resource exhaustion</li>
+            <li>Imports and exports are recorded in the audit log</li>
           </ul>
-
-          <h4>File Format</h4>
-          <p>
-            Export files use Erlang Term Format (.etf), a binary format native to
-            Elixir/Erlang. This ensures type safety and compatibility across versions.
-          </p>
-        </div>
+          <h3>File format</h3>
+          <p>Erlang Term Format (<code>.etf</code>), a binary format native to Elixir/Erlang.</p>
+        </details>
       </div>
-    </div>
-    <script type="text/javascript" src="<%= path(@conn, "/assets/theme.js") %>"></script>
+    </main>
   </body>
 </html>

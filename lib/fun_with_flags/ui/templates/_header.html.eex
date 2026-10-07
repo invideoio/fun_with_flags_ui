@@ -1,0 +1,21 @@
+<% {app_label, app_env_key} = app_label() %>
+<% viewer = viewer(@conn) %>
+<header class="fwf-header" id="fwf-top-bar" data-icons="<%= icon_sprite(@conn) %>">
+  <a class="fwf-brand" href="<%= path(@conn, "/flags") %>"><%= icon(@conn, "flag") %><span class="fwf-brand-name">FunWithFlags</span></a>
+  <nav class="fwf-nav" aria-label="Main">
+    <a href="<%= path(@conn, "/flags") %>" data-nav="flags"<%= nav_current(@active, :flags) %>>Flags</a>
+    <a href="<%= path(@conn, "/audit_logs") %>" data-nav="audit"<%= nav_current(@active, :audit) %>>Audit<span class="fwf-nav-long"> log</span></a>
+    <a href="<%= path(@conn, "/settings") %>" data-nav="settings"<%= nav_current(@active, :settings) %>>Settings</a>
+    <a href="<%= path(@conn, "/new") %>" data-nav="new" hidden>New flag</a>
+  </nav>
+  <div class="fwf-header-end">
+    <%= if app_label do %>
+      <span class="fwf-app-badge fwf-env-<%= html_escape(app_env_key) %>" title="APP_NAME · APP_ENV"><%= html_escape(app_label) %></span>
+    <% end %>
+    <%= if viewer do %>
+      <span class="fwf-viewer" title="signed in as <%= html_escape(viewer) %>"><%= icon(@conn, "user") %><span class="fwf-viewer-text">signed in as <strong><%= html_escape(viewer) %></strong></span></span>
+    <% end %>
+    <button type="button" class="fwf-icon-btn fwf-js-only" data-theme-toggle aria-label="Theme" title="Theme"><svg class="fwf-icon" aria-hidden="true" focusable="false"><use href="<%= icon_sprite(@conn) %>#hi-computer"></use></svg></button>
+    <button type="button" class="fwf-icon-btn fwf-js-only" data-shortcuts-open aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" aria-keyshortcuts="?"><%= icon(@conn, "keyboard") %></button>
+  </div>
+</header>

@@ -1,0 +1,49 @@
+<%
+  pct_path = path(@conn, "/flags/#{url_safe(@flag.name)}/percentage")
+  # the current gate's type, else master's default (time)
+  current_type = case @gate do
+    %{type: :percentage_of_actors} -> "actors"
+    _ -> "time"
+  end
+%>
+<section class="fwf-section" id="percentage_gates" aria-labelledby="fwf-h-pct">
+  <div class="fwf-section-head">
+    <h2 id="fwf-h-pct">Percentage rollout</h2>
+  </div>
+
+  <%= if @gate do %>
+    <% what = if @gate.type == :percentage_of_time, do: "of the time", else: "of actors" %>
+    <div id="percentage_gate" class="fwf-pct-current">
+      <span>On for <strong><%= percent_text(@gate.for) %></strong> <%= what %></span>
+      <span class="fwf-hint">raw <code><%= html_escape(@gate.for) %></code></span>
+      <form action="<%= pct_path %>" method="post">
+        <input type="hidden" name="_method" value="DELETE">
+        <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+        <button type="submit" class="fwf-btn fwf-btn--quiet fwf-btn--sm" data-confirm="Remove the <%= percent_text(@gate.for) %> <%= what %> rollout from <%= html_escape(@flag.name) %>?">Remove</button>
+      </form>
+    </div>
+  <% end %>
+
+  <%!-- The value is a percent, in this form, always: percent_unit tells the
+      server so. It is rendered here, not added by JS, so the "%" label and
+      the server's parse can't disagree. Requests without it are still read
+      as a fraction, as before. No JS touches this form's values. --%>
+  <form id="fwf-percentage-form" class="fwf-pct-form" action="<%= pct_path %>" method="post">
+    <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+    <input type="hidden" name="percent_unit" value="percent">
+    <label for="percent_value"><%= if @gate, do: "Change to", else: "Roll out to" %></label>
+    <input type="text" class="fwf-input" id="percent_value" name="percent_value" inputmode="decimal"
+           placeholder="25" autocomplete="off" aria-describedby="fwf-pct-unit"<%= if @error_message, do: ~s{ aria-invalid="true"} %>>
+    <span id="fwf-pct-unit">%</span>
+    <span class="fwf-pct-of">
+      <span>of</span>
+      <span class="fwf-seg" role="radiogroup" aria-label="Percentage of">
+        <label><input type="radio" name="percent_type" id="radio-percent-type-actors" value="actors"<%= if current_type == "actors", do: " checked" %>> actors</label>
+        <label><input type="radio" name="percent_type" id="radio-percent-type-time" value="time"<%= if current_type == "time", do: " checked" %>> the time</label>
+      </span>
+    </span>
+    <button type="submit" class="fwf-btn fwf-btn--sm"><%= if @gate, do: "Update", else: "Add" %></button>
+    <%= if @error_message do %><p class="fwf-error" role="alert"><%= html_escape(@error_message) %></p><% end %>
+  </form>
+  <%= if Utils.boolean_gate_open?(@flag) == {:ok, true} do %><p class="fwf-hint fwf-pct-hint" id="fwf-pct-no-effect">Has no effect while the default is On.</p><% end %>
+</section>

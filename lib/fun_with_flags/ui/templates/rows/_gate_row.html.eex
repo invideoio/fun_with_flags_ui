@@ -1,0 +1,9 @@
+<%
+  target = to_string(@gate.for)
+  singular = singular(@kind)
+  action = gate_form_action(@conn, @flag, @kind, target)
+  dot = dot_segment?(target)
+  toggle_form = if dot, do: "fwf-#{singular}-dot-#{@index}", else: section_form_id(@kind, :toggle)
+  state = if @gate.enabled, do: "On", else: "Off"
+  other = if @gate.enabled, do: "off", else: "on"
+%><li class="fwf-gate" id="<%= singular %>_<%= html_escape(target) %>"><code class="fwf-gate-id" title="<%= html_escape(target) %>"><%= html_escape(target) %></code><%= if dot do %><form id="<%= toggle_form %>" class="fwf-gate-form" action="<%= action %>" method="post"><input type="hidden" name="_method" value="PATCH"><input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>"><%= gate_target_input(@kind, target) %></form><% end %><button type="submit" class="fwf-switch" role="switch" aria-checked="<%= @gate.enabled %>" form="<%= toggle_form %>"<%= unless dot do %> formaction="<%= action %>"<% end %> name="enabled" value="<%= !@gate.enabled %>" title="<%= state %> — turn <%= other %>" aria-label="<%= html_escape(target) %>"><span class="fwf-switch-track" aria-hidden="true"></span><span class="fwf-switch-label"><%= state %></span></button><button type="submit" class="fwf-btn fwf-btn--quiet fwf-btn--sm fwf-remove" form="<%= section_form_id(@kind, :clear) %>" formaction="<%= action %>"<%= if dot do %> name="<%= gate_param(@kind) %>" value="<%= html_escape(target) %>"<% end %> data-confirm="Remove <%= html_escape(target) %> from <%= html_escape(@flag.name) %>?" aria-label="Remove <%= html_escape(target) %>" title="Remove"><%= icon_ref("cancel") %></button></li>

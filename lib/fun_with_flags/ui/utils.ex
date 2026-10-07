@@ -145,6 +145,10 @@ defmodule FunWithFlags.UI.Utils do
         {:fail, "can't be blank"}
       String.match?(string, ~r/\?/) ->
         {:fail, "includes invalid characters: '?'"}
+      # Dot-segments: in a URL path, browsers resolve /flags/foo/actors/..
+      # to /flags/foo, so the gate's Clear form would delete the whole flag.
+      string in [".", ".."] ->
+        {:fail, "can't be '.' or '..'"}
       true ->
         :ok
     end
@@ -164,6 +168,61 @@ defmodule FunWithFlags.UI.Utils do
           {:fail, "is not a valid decimal number"}
       end
     end
+  end
+
+
+  # The panel's percentage form sends a percent (0 < x < 100) with
+  # `percent_unit=percent`; FunWithFlags wants a fraction. Stricter than
+  # `parse_and_validate_float/1`: plain decimal digits only (no sign, no
+  # exponent, no trailing junk). The division by 100 moves the decimal point
+  # in the string, so "42.1337" gives exactly the float that typing
+  # "0.421337" gives (no 0.42133700000000004).
+  #
+  def parse_and_validate_percent(string) do
+    trimmed = if is_binary(string), do: String.trim(string), else: ""
+
+    cond do
+      blank?(trimmed) ->
+        {:fail, "can't be blank"}
+
+      not Regex.match?(~r/^(\d+(\.\d*)?|\.\d+)$/, trimmed) ->
+        {:fail, "is not a valid percentage (use digits, e.g. 25 or 2.5)"}
+
+      # 100 or more (integer part longer than 2 digits once leading zeros are
+      # stripped): out of range, and checked before converting, because a
+      # huge integer part makes Float.parse return :error.
+      integer_digits(trimmed) > 2 ->
+        {:fail, "is outside the '0 < x < 100' range"}
+
+      true ->
+        case Float.parse(percent_string_to_fraction(trimmed)) do
+          {value, ""} when value > 0 and value < 1 -> {:ok, value}
+          _ -> {:fail, "is outside the '0 < x < 100' range"}
+        end
+    end
+  end
+
+  defp integer_digits(percent) do
+    percent
+    |> String.split(".", parts: 2)
+    |> hd()
+    |> String.trim_leading("0")
+    |> String.length()
+  end
+
+  defp percent_string_to_fraction(percent) do
+    [int, frac] =
+      case String.split(percent, ".", parts: 2) do
+        [int] -> [int, ""]
+        [int, frac] -> [int, frac]
+      end
+
+    digits = int <> frac
+    point = String.length(int) - 2
+    {digits, point} = if point < 1, do: {String.duplicate("0", 1 - point) <> digits, 1}, else: {digits, point}
+    {whole, decimals} = String.split_at(digits, point)
+    decimals = if decimals == "", do: "0", else: decimals
+    whole <> "." <> decimals
   end
 
 

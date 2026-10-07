@@ -1,210 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-  <%= _head(conn: @conn, title: "List") %>
-  <body>
-    <nav id="fwf-top-bar" class="navbar navbar-inverse navbar-toggleable-xl">
-      <a class="navbar-brand" href="https://github.com/tompave/fun_with_flags">FunWithFlags</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item active">
-            <a class="nav-link" href="">all flags</a>
-          </li>
+  <%= _head(conn: @conn, title: page_title(assigns)) %>
+  <body class="fwf-flags-page<%= if @selected_name, do: " fwf-has-selection" %>"
+        data-base="<%= path(@conn, "/flags") %>"
+        data-viewer="<%= html_escape(@viewer || "") %>"<%= if @selected_name do %>
+        data-selected="<%= html_escape(@selected_name) %>"<% end %>>
+    <%= _header(conn: @conn, active: :flags) %>
 
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/audit_logs") %>">audit logs</a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/settings") %>">settings</a>
-          </li>
-        </ul>
-
-        <a href="<%= path(@conn, "/new") %>" class="btn btn-secondary">New Flag</a>
-      </div>
-    </nav>
-
-    <div class="container mt-3">
-      <div class="row d-none d-md-flex">
-        <div class="col">
-          <table class="table table-hover" id="fwf-flags-table">
-            <thead class="thead-default">
-              <tr>
-                <th class="fwf-sortable" data-sort-key="name" style="cursor: pointer; user-select: none;">
-                  name <span class="fwf-sort-arrow" data-col="name"></span>
-                </th>
-                <th class="fwf-sortable" data-sort-key="status" style="cursor: pointer; user-select: none;">
-                  status <span class="fwf-sort-arrow" data-col="status"></span>
-                </th>
-                <th>gates</th>
-                <th class="fwf-sortable" data-sort-key="created" style="cursor: pointer; user-select: none;">
-                  created <span class="fwf-sort-arrow" data-col="created"></span>
-                </th>
-              </tr>
-            </thead>
-            <tbody id="fwf-flags-tbody">
-              <%= for flag <- @flags do %>
-                <tr data-name="<%= html_escape(flag.name) %>"
-                    data-status="<%= Utils.get_flag_status(flag) %>"
-                    data-created="<%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "" %>">
-                  <td>
-                    <a href="<%= path(@conn, "/flags/#{url_safe(flag.name)}") %>">
-                      <%= html_escape(flag.name) %>
-                    </a>
-                  </td>
-
-                  <td>
-                    <%= html_smart_status_for(flag) %>
-                  </td>
-
-                  <td>
-                    <%= html_gate_list(flag) %>
-                  </td>
-
-                  <td class="fwf-created-at">
-                    🦖
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div class="container d-flex flex-column d-md-none" id="fwf-flags-cards">
-      <%= for flag <- @flags do %>
-        <div class="card mb-3"
-             data-name="<%= html_escape(flag.name) %>"
-             data-status="<%= Utils.get_flag_status(flag) %>"
-             data-created="<%= if flag.created_at, do: format_utc_timestamp(flag.created_at), else: "" %>">
-          <div class="card-body">
-            <h5 class="card-title">
-              <a href="<%= path(@conn, "/flags/#{url_safe(flag.name)}") %>">
-                <%= html_escape(flag.name) %>
-              </a>
-            </h5>
-            <div class="d-flex flex-column gap-2">
-              <div>
-                <strong>Status:</strong>
-                <%= html_smart_status_for(flag) %>
-              </div>
-              <div>
-                <strong>Gates:</strong>
-                <%= html_gate_list(flag) %>
-              </div>
-              <div>
-                <strong>Created:</strong>
-                <span class="fwf-created-at">🦖</span>
-              </div>
-            </div>
-          </div>
+    <main class="fwf-app">
+      <%= if assigns[:deleted_name] do %>
+        <div class="fwf-banner fwf-banner--info fwf-flash" id="fwf-flash" role="status">
+          <p>Deleted <strong class="fwf-mono"><%= html_escape(@deleted_name) %></strong>.</p>
+          <button type="button" class="fwf-banner-close fwf-js-only" id="fwf-flash-close" aria-label="Dismiss"><%= icon(@conn, "cancel") %></button>
         </div>
       <% end %>
-    </div>
-    <script>
-      (function() {
-        var STATUS_ORDER = {fully_open: 0, half_open: 1, closed: 2};
+      <div class="fwf-toolbar" id="fwf-toolbar">
+        <div class="fwf-search-row">
+          <div class="fwf-search-box fwf-js-only">
+            <%= icon(@conn, "search") %>
+            <input type="search" id="fwf-search" class="fwf-input fwf-search"
+                   placeholder="Search flags, actor IDs, groups"
+                   aria-label="Search flags by name, actor ID or group"
+                   aria-keyshortcuts="/"
+                   autocomplete="off" spellcheck="false">
+            <span class="fwf-search-hint" aria-hidden="true"><kbd>/</kbd></span>
+          </div>
+          <button type="button" class="fwf-btn fwf-filters-toggle" id="fwf-filters-toggle" aria-expanded="false" aria-controls="fwf-filters">
+            <%= icon(@conn, "filter") %>Filters<span class="fwf-chip-count" id="fwf-filters-count" hidden>0</span>
+          </button>
+          <a href="<%= path(@conn, "/new") %>" class="fwf-btn fwf-btn--primary fwf-new-flag" aria-keyshortcuts="n" aria-label="New flag"><%= icon(@conn, "add") %><span class="fwf-new-flag-label">New flag</span><kbd class="fwf-btn-kbd" aria-hidden="true">n</kbd></a>
+        </div>
 
-        function getSort() {
-          try { return localStorage.getItem('fwf-sort') || 'name_asc'; } catch(e) { return 'name_asc'; }
-        }
+        <div class="fwf-filters fwf-js-only" id="fwf-filters">
+          <div class="fwf-seg" role="group" aria-label="Status">
+            <button type="button" data-status="" aria-pressed="true">All</button>
+            <button type="button" data-status="on" aria-pressed="false">On</button>
+            <button type="button" data-status="partial" aria-pressed="false">Partial</button>
+            <button type="button" data-status="off" aria-pressed="false">Off</button>
+          </div>
 
-        function setSort(s) {
-          try { localStorage.setItem('fwf-sort', s); } catch(e) {}
-        }
+          <div class="fwf-filter-group" role="group" aria-label="Gate type">
+            <span class="fwf-filter-label" aria-hidden="true">Gates</span>
+            <button type="button" class="fwf-chip" data-type="boolean" aria-pressed="false">boolean</button>
+            <button type="button" class="fwf-chip" data-type="actor" aria-pressed="false">actor</button>
+            <button type="button" class="fwf-chip" data-type="group" aria-pressed="false">group</button>
+            <button type="button" class="fwf-chip" data-type="percentage" aria-pressed="false">%</button>
+          </div>
 
-        function compareName(a, b) {
-          return a.dataset.name.localeCompare(b.dataset.name);
-        }
+          <span class="fwf-filter-sep" aria-hidden="true"></span>
 
-        function compareStatus(a, b) {
-          var sa = STATUS_ORDER[a.dataset.status] || 0;
-          var sb = STATUS_ORDER[b.dataset.status] || 0;
-          return sa - sb || compareName(a, b);
-        }
+          <div class="fwf-filter-group" role="group" aria-label="Quick filters">
+            <button type="button" class="fwf-chip" data-chip="pinned" aria-pressed="false"><%= icon(@conn, "star") %>Pinned</button>
+            <%= if @any_created do %>
+              <button type="button" class="fwf-chip" data-chip="new" aria-pressed="false" title="Created in the last 14 days">New</button>
+            <% end %>
+            <%= if @viewer do %>
+              <button type="button" class="fwf-chip" data-chip="mine" aria-pressed="false" title="Flags with an actor gate for <%= html_escape(@viewer) %>">Mine</button>
+            <% end %>
+          </div>
 
-        function compareCreated(a, b, dir) {
-          var ca = a.dataset.created;
-          var cb = b.dataset.created;
-          if (!ca && !cb) return compareName(a, b);
-          if (!ca) return 1;
-          if (!cb) return -1;
-          var r = ca < cb ? -1 : ca > cb ? 1 : 0;
-          return dir === 'desc' ? -r : r;
-        }
+          <div class="fwf-filter-end">
+            <span class="fwf-active-filters" id="fwf-active-filters" hidden>
+              <button type="button" class="fwf-btn fwf-btn--quiet fwf-btn--sm" id="fwf-clear-filters"><%= icon(@conn, "cancel") %><span>Clear filters</span></button>
+            </span>
+            <div class="fwf-sort">
+              <label for="fwf-sort-key" class="fwf-filter-label">Sort</label>
+              <select id="fwf-sort-key" class="fwf-select fwf-select--sm">
+                <option value="name">name</option>
+                <option value="created">created</option>
+                <option value="status">status</option>
+              </select>
+              <button type="button" class="fwf-sort-dir" id="fwf-sort-dir" data-dir="asc" aria-label="Sort direction: ascending"><%= icon(@conn, "arrow-up") %></button>
+            </div>
+            <span class="fwf-count" id="fwf-count" aria-live="polite"><%= length(@flags) %> flags</span>
+          </div>
+        </div>
+      </div>
 
-        function sortElements(container, elements, sortKey) {
-          var parts = sortKey.match(/^(.+)_(asc|desc)$/);
-          if (!parts) return;
-          var col = parts[1], dir = parts[2];
+      <div class="fwf-split">
+        <section class="fwf-list-col" id="fwf-list-col" aria-label="Flags">
+          <ul class="fwf-list" id="fwf-list">
+            <%= for flag <- @flags do %><%= _flag_list_item(conn: @conn, flag: flag, selected: to_string(flag.name) == @selected_name) %><% end %>
+            <%= if longest = longest_flag_name(@flags) do %><li class="fwf-row-sizer" aria-hidden="true"><span class="fwf-row-name"><%= html_escape(longest) %></span><span class="fwf-pill fwf-pill-partial">Partial</span></li><% end %>
+          </ul>
+          <div class="fwf-list-empty" id="fwf-list-empty"<%= unless @flags == [], do: " hidden" %>>
+            <%= if @flags == [] do %>
+              <p>There are no flags yet.</p>
+              <a href="<%= path(@conn, "/new") %>" class="fwf-btn fwf-btn--primary">Create the first flag</a>
+            <% else %>
+              <p id="fwf-list-empty-text">No flags match.</p>
+              <button type="button" class="fwf-btn" id="fwf-list-empty-clear">Clear search and filters</button>
+            <% end %>
+          </div>
+        </section>
 
-          var arr = Array.from(elements);
-          if (col === 'created') {
-            arr.sort(function(a, b) { return compareCreated(a, b, dir); });
-          } else {
-            var cmp = col === 'name' ? compareName : compareStatus;
-            arr.sort(function(a, b) {
-              var r = cmp(a, b);
-              return dir === 'desc' ? -r : r;
-            });
-          }
-          arr.forEach(function(el) { container.appendChild(el); });
-        }
+        <section class="fwf-panel-col" id="fwf-panel" aria-label="Flag details">
+          <%= if @flag do %>
+            <%= _flag_panel(assigns) %>
+          <% else %>
+            <%= if @selected_name do %>
+              <%= _flag_panel_not_found(conn: @conn, name: @selected_name) %>
+            <% else %>
+              <%= _flag_panel_empty(conn: @conn) %>
+            <% end %>
+          <% end %>
+        </section>
+      </div>
+    </main>
 
-        function updateArrows(sortKey) {
-          var parts = sortKey.match(/^(.+)_(asc|desc)$/);
-          document.querySelectorAll('.fwf-sort-arrow').forEach(function(span) {
-            if (parts && span.dataset.col === parts[1]) {
-              span.innerHTML = parts[2] === 'asc' ? '&uarr;' : '&darr;';
-            } else {
-              span.innerHTML = '';
-            }
-          });
-        }
+    <template id="fwf-panel-empty-template"><%= _flag_panel_empty(conn: @conn) %></template>
 
-        function applySort(sortKey) {
-          var tbody = document.getElementById('fwf-flags-tbody');
-          if (tbody) sortElements(tbody, tbody.querySelectorAll('tr'), sortKey);
-
-          var cards = document.getElementById('fwf-flags-cards');
-          if (cards) sortElements(cards, cards.querySelectorAll('.card'), sortKey);
-
-          updateArrows(sortKey);
-        }
-
-        // Format UTC timestamps to local time
-        document.querySelectorAll('[data-created]').forEach(function(el) {
-          var utc = el.dataset.created;
-          if (utc) {
-            var cell = el.querySelector('.fwf-created-at');
-            if (cell) {
-              var d = new Date(utc + ' UTC');
-              var day = d.getDate();
-              var month = d.toLocaleString(undefined, {month: 'short'});
-              var year = d.getFullYear();
-              var hour = d.getHours();
-              var ampm = hour >= 12 ? 'PM' : 'AM';
-              hour = hour % 12 || 12;
-              var min = d.getMinutes().toString().padStart(2, '0');
-              cell.textContent = day + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ' ' + ampm;
-            }
-          }
-        });
-
-        // Apply stored sort
-        var current = getSort();
-        applySort(current);
-
-        // Click handlers
-        document.querySelectorAll('.fwf-sortable').forEach(function(th) {
-          th.addEventListener('click', function() {
-            var col = this.dataset.sortKey;
-            var cur = getSort();
-            var next = (cur === col + '_asc') ? col + '_desc' : col + '_asc';
-            setSort(next);
-            applySort(next);
-          });
-        });
-      })();
-    </script>
+    <script type="text/javascript" src="<%= path(@conn, "/assets/flags_core.js") %>" defer></script>
+    <script type="text/javascript" src="<%= path(@conn, "/assets/flags.js") %>" defer></script>
   </body>
 </html>

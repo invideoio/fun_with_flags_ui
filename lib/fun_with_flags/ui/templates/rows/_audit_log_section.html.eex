@@ -1,17 +1,27 @@
-<div id="audit_log" class="row mb-3">
-  <div class="col">
-    <div class="card">
-      <h5 class="card-header">
-        Audit Log
-      </h5>
-      <div class="card-body">
-        <%= if assigns[:audit_disabled] do %>
-          <p class="text-muted">Audit logging is not enabled.</p>
-        <% else %>
-          <%= _audit_log_table(assigns) %>
-          <%= _audit_log_pagination(assigns) %>
-        <% end %>
-      </div>
-    </div>
+<section class="fwf-section" id="audit_log" aria-labelledby="fwf-h-activity">
+  <div class="fwf-section-head">
+    <h2 id="fwf-h-activity">Activity<%= if assigns[:audit_total] && assigns[:audit_total] > 0 do %> <span class="fwf-section-count">· <%= assigns[:audit_total] %></span><% end %></h2>
+    <%= if assigns[:flag] && !assigns[:audit_disabled] do %>
+      <a class="fwf-section-link" href="<%= path(@conn, "/audit_logs") %>?<%= URI.encode_query(%{"flag_name" => to_string(assigns[:flag].name)}) %>">Open in audit log<%= icon(@conn, "arrow-right") %></a>
+    <% end %>
   </div>
-</div>
+  <%= if assigns[:audit_disabled] do %>
+    <p class="fwf-gates-empty">Audit logging is not enabled.</p>
+  <% else %>
+    <% records = assigns[:audit_records] || [] %>
+    <%= if Enum.empty?(records) do %>
+      <p class="fwf-gates-empty">No activity recorded yet.</p>
+    <% else %>
+      <ol class="fwf-activity">
+        <%= for record <- records do %>
+          <li>
+            <span class="fwf-act-what"><%= describe_audit_record(record) %></span>
+            <time class="fwf-act-when fwf-utc-timestamp fwf-relative" data-utc="<%= format_utc_timestamp(record.inserted_at) %>" title="<%= format_utc_timestamp(record.inserted_at) %> UTC"><%= format_utc_timestamp(record.inserted_at) %> UTC</time>
+            <span class="fwf-act-who"><%= if record.user_id, do: html_escape(record.user_id), else: "unknown user" %></span>
+          </li>
+        <% end %>
+      </ol>
+      <%= _audit_log_pagination(assigns) %>
+    <% end %>
+  <% end %>
+</section>

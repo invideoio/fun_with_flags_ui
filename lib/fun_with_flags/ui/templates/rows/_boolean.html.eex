@@ -1,40 +1,38 @@
 <%
   status = Utils.boolean_gate_open?(@flag)
-  is_enabled = case status do
-    {:ok, bool} -> bool
-    :missing -> false
-  end
   form_path = path(@conn, "/flags/#{url_safe(@flag.name)}/boolean")
 %>
-
-<div class="card-block">
-  <span class="fwf-global-flag-status">
-    <%= html_status_for status %>
-
-    <%= if is_enabled or (status == :missing) do %>
-      <form id="fwf-global-toggle-form" action="<%= form_path %>" method="post" class="fwf-inline-toggle">
-        <input type="hidden" name="_method" value="PATCH">
-        <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
-        <input type="hidden" name="enabled" value="false">
-        <button id="disable-boolean-btn" type="submit" class="btn btn-sm btn-outline-danger">Disable</button>
-      </form>
-    <% end %>
-
-    <%= if !is_enabled or (status == :missing) do %>
-      <form id="fwf-global-toggle-form" action="<%= form_path %>" method="post" class="fwf-inline-toggle">
+<div class="fwf-default">
+  <div class="fwf-seg" role="group" aria-label="Default state">
+    <%= if status == {:ok, true} do %>
+      <span class="fwf-seg-item is-current fwf-seg-on" aria-current="true">On</span>
+    <% else %>
+      <form id="fwf-global-enable-form" action="<%= form_path %>" method="post">
         <input type="hidden" name="_method" value="PATCH">
         <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
         <input type="hidden" name="enabled" value="true">
-        <button id="enable-boolean-btn" type="submit" class="btn btn-sm btn-outline-success">Enable</button>
+        <button id="enable-boolean-btn" type="submit" class="fwf-seg-item">On</button>
       </form>
     <% end %>
-
-    <%= unless status == :missing do %>
-      <form action="<%= form_path %>" method="post" class="float-right">
-        <input type="hidden" name="_method" value="DELETE">
+    <%= if status == {:ok, false} do %>
+      <span class="fwf-seg-item is-current" aria-current="true">Off</span>
+    <% else %>
+      <form id="fwf-global-disable-form" action="<%= form_path %>" method="post">
+        <input type="hidden" name="_method" value="PATCH">
         <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
-        <button id="clear-boolean-btn" type="submit" class="btn btn-sm btn-secondary" data-confirm="Are you sure you want to clear the boolean gate? A missing boolean gate will be the same a as disabled boolean gate, and this option is provided mainly for debugging purposes.">Clear</button>
+        <input type="hidden" name="enabled" value="false">
+        <button id="disable-boolean-btn" type="submit" class="fwf-seg-item">Off</button>
       </form>
     <% end %>
-  </span>
+  </div>
+
+  <%= if status == :missing do %>
+    <span class="fwf-hint">Not set — counts as Off.</span>
+  <% else %>
+    <form class="fwf-reset" action="<%= form_path %>" method="post">
+      <input type="hidden" name="_method" value="DELETE">
+      <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+      <button id="clear-boolean-btn" type="submit" class="fwf-btn fwf-btn--quiet fwf-btn--sm" title="Remove the boolean gate (same as Off)" data-confirm="Remove the boolean gate from <%= html_escape(@flag.name) %>? Without it the default is Off. This is mainly for debugging.">Reset</button>
+    </form>
+  <% end %>
 </div>
