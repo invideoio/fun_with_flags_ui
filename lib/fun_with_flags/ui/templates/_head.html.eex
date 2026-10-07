@@ -1,5 +1,6 @@
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FunWithFlags - <%= @title %></title>
 
   <script>
@@ -17,6 +18,12 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="<%= path(@conn, "/assets/bootstrap.min.css") %>">
+  <%!-- Loaded first, in the head, with no dependencies: the confirmation on
+      Delete Flag / Clear must be in place before any button exists and must
+      not depend on any other script loading. --%>
+  <script type="text/javascript" src="<%= path(@conn, "/assets/confirm.js") %>"></script>
+
   <link rel="stylesheet" href="<%= path(@conn, "/assets/style.css") %>">
+  <script type="text/javascript" src="<%= path(@conn, "/assets/theme.js") %>" defer></script>
+  <script type="text/javascript" src="<%= path(@conn, "/assets/shortcuts.js") %>" defer></script>
 </head>

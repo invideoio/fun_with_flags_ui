@@ -1,0 +1,7 @@
+<li class="fwf-row<%= if @selected, do: " is-selected" %>" data-name="<%= html_escape(@flag.name) %>" data-status="<%= status_key(@flag) %>" data-types="<%= gate_type_keys(@flag) %>" data-created="<%= iso_timestamp(@flag.created_at) %>" data-actors="<%= html_escape(actor_targets(@flag)) %>" data-groups="<%= html_escape(group_targets(@flag)) %>">
+<button type="button" class="fwf-pin" aria-pressed="false" aria-label="Pin"></button>
+<a class="fwf-row-link" href="<%= flag_path(@conn, @flag.name) %>"<%= if @selected, do: ~s{ aria-current="page"} %>><span class="fwf-row-main"><span class="fwf-row-name"><%= html_breakable_name(@flag.name) %></span></span>
+<%= html_status_pill(@flag) %>
+<% summary = gate_summary(@flag) %><span class="fwf-row-gates" title="<%= html_escape(summary) %>"><%= summary %></span>
+<%= if @flag.created_at do %><time class="fwf-row-created" title="<%= format_utc_timestamp(@flag.created_at) %> UTC"><%= format_date(@flag.created_at) %></time><% else %><span class="fwf-row-created"></span><% end %></a>
+</li>

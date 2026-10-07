@@ -111,6 +111,8 @@ config :fun_with_flags, :audit_logs,
 
 No additional configuration is needed in the UI — it reads the audit log settings from the core `fun_with_flags` configuration.
 
+The flags page also uses that header to show "signed in as …" and the "Mine" filter, which lists the flags with an actor gate whose ID is the viewer's email or ends in `:` + email (e.g. `email:ana@example.com`), case-insensitively. That only works if the header carries the user's **email**: if your host or proxy puts an opaque user ID there, "Mine" will always be empty. It is a display filter, not authorization.
+
 ## Caveats
 
 While the base `fun_with_flags` library is quite relaxed in terms of valid flag names, group names and actor identifers, this web dashboard extension applies some more restrictive rules.
@@ -122,10 +124,38 @@ Things change on the web, however. Think about the binary `"Ook? Ook!"`. In code
 {:ok, true} = FunWithFlags.enable(:"Ook? Ook!", for_group: :"weird, huh?")
 ```
 
-On the web, however, the question mark makes working with URLs a bit tricky: in `http://localhost:8080/flags/Ook?%20Ook!`, the flag name will be `Ook` and the rest will be a query string.
+On the web, however, the question mark makes working with URLs a bit tricky: unencoded, in `http://localhost:8080/flags/Ook?%20Ook!` the flag name would be `Ook` and the rest a query string. The dashboard percent-encodes names and IDs as path segments (`/flags/Ook%3F%20Ook!`), so flags like this created in code can still be viewed and edited.
 
-For this reason this library enforces some stricter rules when creating flags and groups. Blank values are not allowed, `?` neither, and flag names must match `/^w+$/`.
+Still, this library enforces some stricter rules when creating flags and groups from the dashboard. Blank values are not allowed, `?` neither, and flag names must match `/^w+$/`.
 
+
+## Development
+
+The tests need Redis on `localhost:6379`:
+
+```
+mix test
+mix credo
+node --test 'test/js/*.test.js'   # the flags page's search/filter/sort logic (priv/static/flags_core.js)
+```
+
+### Preview harness
+
+`mix test` and the standalone server use Redis persistence, where flags have no creation date and there is no audit log. `dev/preview` is a separate, dev-only Mix project that serves the dashboard from this checkout against a scratch Postgres database with Ecto persistence and audit logs, mounted under `/internal/feature-flags` like a host app, with a deterministic seed of ~300 made-up flags (actors, groups, percentages, a few flags with 200+ actors, creation dates over two years, audit entries by `@example.com` users). It is not part of the package.
+
+```
+cd dev/preview && FWF_DEV_DATABASE_URL=ecto://postgres:postgres@localhost:5432/fwf_ui_dev mix setup && FWF_DEV_DATABASE_URL=ecto://postgres:postgres@localhost:5432/fwf_ui_dev PORT=9090 FWF_DEV_VIEWER_EMAIL=ana@example.com mix preview.server
+```
+
+Then open http://localhost:9090/ (press `?` for the keyboard shortcuts). `mix setup` creates and migrates the database (with the migrations shipped in `fun_with_flags`) and seeds it; `mix preview.seed` re-seeds (it truncates the flags and audit log tables, so point `FWF_DEV_DATABASE_URL` at a database of its own). Other env vars: `FWF_DEV_VIEWER_EMAIL` fakes the viewer header (the audit log's user ID header, which also drives the "Mine" filter and "signed in as"), and `APP_NAME` / `APP_ENV` show the header badge.
+
+
+## Credits
+
+- Icons: [Hugeicons](https://hugeicons.com) free icons (`@hugeicons/core-free-icons` 4.3.5, MIT), vendored as one SVG sprite in `priv/static/icons/hugeicons.svg` (licence in `priv/static/icons/LICENSE-hugeicons.md`; rebuilt with `dev/icons/build_sprite.js`).
+- Font: [Inter](https://rsms.me/inter/) (SIL Open Font License 1.1), `priv/static/fonts/InterVariable.woff2` (licence in `priv/static/fonts/LICENSE-Inter-OFL.txt`).
+
+The dashboard loads nothing from other origins, so it works under a `default-src 'self'` Content-Security-Policy. The preview harness sends such a policy by default (`FWF_DEV_CSP=off|strict` to change it).
 
 ## Installation
 

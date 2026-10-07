@@ -2,47 +2,45 @@
 <% show_flag = !assigns[:hide_flag_column] %>
 
 <%= if Enum.empty?(records) do %>
-  <p class="text-muted">No audit log entries found.</p>
+  <p class="fwf-muted">No audit log entries found.</p>
 <% else %>
-  <div class="table-responsive">
-    <table class="table table-hover table-sm">
-      <thead class="thead-default">
+  <div class="fwf-card fwf-table-wrap">
+    <table class="fwf-table fwf-audit-table">
+      <thead>
         <tr>
-          <th>Timestamp</th>
+          <th>Time</th>
           <%= if show_flag do %>
             <th>Flag</th>
           <% end %>
-          <th>User</th>
           <th>Action</th>
+          <th>User</th>
         </tr>
       </thead>
       <tbody>
         <%= for record <- records do %>
           <tr>
             <td>
-              <span class="fwf-utc-timestamp" data-utc="<%= format_utc_timestamp(record.inserted_at) %>">
+              <time class="fwf-utc-timestamp" data-utc="<%= format_utc_timestamp(record.inserted_at) %>" title="<%= format_utc_timestamp(record.inserted_at) %> UTC">
                 <%= format_utc_timestamp(record.inserted_at) %> UTC
-              </span>
+              </time>
             </td>
             <%= if show_flag do %>
               <td>
                 <%= if record.flag_name do %>
-                  <a href="<%= path(@conn, "/flags/#{url_safe(record.flag_name)}") %>">
-                    <%= html_escape(record.flag_name) %>
-                  </a>
+                  <a href="<%= path(@conn, "/flags/#{url_safe(record.flag_name)}") %>"><code><%= html_escape(record.flag_name) %></code></a>
                 <% else %>
-                  <span class="text-muted">(bulk operation)</span>
+                  <span class="fwf-muted">(bulk operation)</span>
                 <% end %>
               </td>
             <% end %>
+            <td><%= describe_audit_record(record) %></td>
             <td>
               <%= if record.user_id do %>
                 <%= html_escape(record.user_id) %>
               <% else %>
-                <span class="text-muted">-</span>
+                <span class="fwf-muted">—</span>
               <% end %>
             </td>
-            <td><%= describe_audit_record(record) %></td>
           </tr>
         <% end %>
       </tbody>

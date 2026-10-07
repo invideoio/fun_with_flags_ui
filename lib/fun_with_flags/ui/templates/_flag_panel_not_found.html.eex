@@ -1,0 +1,6 @@
+<div class="fwf-panel fwf-panel-not-found" data-title="Not Found">
+  <a class="fwf-back" href="<%= path(@conn, "/flags") %>"><%= icon(@conn, "arrow-left") %>All flags</a>
+  <div class="fwf-banner fwf-banner--warning" role="alert">
+    <p>The flag <strong><%= html_escape(@name) %></strong> doesn't exist.</p>
+  </div>
+</div>

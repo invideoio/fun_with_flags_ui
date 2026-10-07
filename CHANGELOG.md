@@ -2,6 +2,15 @@
 
 ## v1.2.0 (unreleased)
 
+* The flag list and the flag details are now one two-column page: search (flag names, actor IDs and group names), status / gate type / pinned / new / mine filters and sorting on top, the list on the left, the selected flag's gates on the right. `GET /flags/:name` renders the same page with that flag selected; `GET /flags/:name/panel` returns just its panel. Filters live in the query string. Flag states read "On", "Partial" and "Off".
+* Flag names and actor IDs are percent-encoded as path segments in links, form actions and redirects, so flags with names like `:"Ook? Ook!"` and actor IDs containing `/` can be opened and edited.
+* Validation errors on the flag page keep the audit log section.
+* Actor IDs and group names `.` and `..` are rejected: as URL path segments they are dot-segments, so the gate's Clear form posted to the flag's own URL and deleted the whole flag. Existing gates with such IDs get forms that post the ID in the body (`PATCH`/`DELETE /flags/:name/actors` and `/groups`).
+* The confirmation on Delete Flag and Clear buttons lives in its own dependency-free `confirm.js`, loaded first in the head of every page.
+* **Behaviour change:** in the flag page's "add actor" / "add group" forms, pressing Enter now adds the gate **enabled** (the default button reads "Add as on"); before, the form's "disabled" radio was preselected, so Enter added it disabled. "Add as off" adds it disabled.
+* The percentage form takes a percent (`25` for 25%) and says so: it sends `percent_unit=percent`, and the server converts to the fraction FunWithFlags stores, with exact decimal arithmetic and a strict parse (plain digits, 0 < x < 100). Requests without `percent_unit` are read as a fraction, as before. The type still defaults to "% of time" unless the flag already has a percentage gate.
+* A redesign of every page on one small component set (no Bootstrap): a shared header (env badge, signed-in user, theme switch, keyboard help) on every page; the flag panel leads with a sentence saying who the flag is on for, with compact gate rows (switch + remove), long gate lists collapsed with a filter, a percentage input in percent, and a compact activity list; keyboard shortcuts for navigating, filtering and copying (`?` lists them; none changes a flag). Hugeicons icons and the Inter font are bundled.
+
 * Drop support for Erlang/OTP 25, and Erlang/OTP >= 26 is now required. Dropping support for older versions of Erlang/OTP simply means that this package is not tested with them in CI, and that no compatibility issues are considered bugs.
 
 ## v1.1.0

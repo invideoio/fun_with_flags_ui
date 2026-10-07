@@ -1,0 +1,54 @@
+<%
+  singular = singular(@kind)
+  title = if @kind == "actors", do: "Actors", else: "Groups"
+  total = length(@gates)
+  {shown, rest} = Enum.split(@gates, gate_rows_visible())
+  collection = path(@conn, "/flags/#{url_safe(@flag.name)}/#{@kind}")
+  param = gate_param(@kind)
+  # not "actor_id": a row's anchor is "actor_<target>", so an actor "id"
+  # would collide with it
+  input_id = "fwf-add-#{singular}-input"
+%>
+<section class="fwf-section" id="<%= singular %>_gates" aria-labelledby="fwf-h-<%= @kind %>" data-gate-section="<%= @kind %>">
+  <div class="fwf-section-head">
+    <h2 id="fwf-h-<%= @kind %>"><%= title %> <span class="fwf-section-count">· <%= total %></span></h2>
+    <%= if rest != [] do %>
+      <input type="search" class="fwf-input fwf-input--sm fwf-gate-filter fwf-js-only" placeholder="Filter <%= @kind %>" aria-label="Filter <%= @kind %>" data-gate-filter autocomplete="off" spellcheck="false">
+    <% end %>
+  </div>
+
+  <form id="fwf-new-<%= singular %>-form" class="fwf-add" action="<%= collection %>" method="post">
+    <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+    <label class="fwf-sr" for="<%= input_id %>"><%= if @kind == "actors", do: "Actor ID", else: "Group name" %></label>
+    <input type="text" class="fwf-input fwf-input--mono" id="<%= input_id %>" name="<%= param %>"
+           placeholder="<%= if @kind == "actors", do: "Add actor ID, e.g. user:123", else: "Add group, e.g. beta" %>"
+           autocomplete="off" spellcheck="false"<%= if @kind == "actors", do: ~s{ aria-keyshortcuts="a"} %><%= if @error_message, do: ~s{ aria-invalid="true"} %>>
+    <span class="fwf-add-actions">
+      <button type="submit" name="enabled" value="true" class="fwf-btn fwf-btn--sm"><%= icon(@conn, "add") %>Add as on</button>
+      <button type="submit" name="enabled" value="false" class="fwf-btn fwf-btn--quiet fwf-btn--sm" title="Add it with the gate off">Add as off</button>
+    </span>
+    <%= if @error_message do %><p class="fwf-error" role="alert"><%= html_escape(@error_message) %></p><% end %>
+  </form>
+
+  <%!-- Shared by every row's switch and remove button (form= + formaction=). --%>
+  <form id="<%= section_form_id(@kind, :toggle) %>" class="fwf-gate-form" action="<%= collection %>" method="post">
+    <input type="hidden" name="_method" value="PATCH">
+    <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+  </form>
+  <form id="<%= section_form_id(@kind, :clear) %>" class="fwf-gate-form" action="<%= collection %>" method="post">
+    <input type="hidden" name="_method" value="DELETE">
+    <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+  </form>
+
+  <%= if total == 0 do %>
+    <p class="fwf-gates-empty">No <%= singular %> gates.</p>
+  <% else %>
+    <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(shown) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i) %><% end %></ul>
+    <%= if rest != [] do %>
+      <details class="fwf-more" data-gate-more>
+        <summary><%= icon(@conn, "chevron-down") %>Show all <%= total %></summary>
+        <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(rest, length(shown)) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i) %><% end %></ul>
+      </details>
+    <% end %>
+  <% end %>
+</section>

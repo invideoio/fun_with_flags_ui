@@ -76,7 +76,7 @@ defmodule FunWithFlags.UI.Router do
     case Utils.validate_flag_name(conn, name) do
       :ok ->
         case Utils.create_flag_with_name(name, audit_opts(conn)) do
-          {:ok, _} -> redirect_to conn, "/flags/#{name}"
+          {:ok, _} -> redirect_to conn, flag_location(name)
           _ -> html_resp(conn, 400, Templates.new(%{conn: conn, error_message: "Something went wrong!"}))
         end
       {:fail, reason} ->
@@ -85,29 +85,32 @@ defmodule FunWithFlags.UI.Router do
   end
 
 
-  # get a list of the flags
+  # The flags page: the list of flags, with nothing selected.
   #
   get "/flags" do
-    {:ok, flags} = FunWithFlags.all_flags
-    flags = Utils.sort_flags(flags)
-    body = Templates.index(conn: conn, flags: flags)
-
-    conn
-    |> html_resp(200, body)
+    render_flags_page(conn, 200, nil)
   end
 
 
-  # flag details
+  # The flags page with one flag selected, its panel rendered server-side.
   #
   get "/flags/:name" do
+    render_flags_page(conn, 200, name)
+  end
+
+
+  # Just the panel of one flag, swapped in by the JS when a row is clicked.
+  # It must not list all the flags.
+  #
+  get "/flags/:name/panel" do
+    conn = put_resp_header(conn, "cache-control", "no-store")
+
     case Utils.get_flag(name) do
       {:ok, flag} ->
-        audit_assigns = fetch_flag_audit_logs(conn, name, conn.query_params)
-        body = Templates.details([conn: conn, flag: flag] ++ audit_assigns)
-        html_resp(conn, 200, body)
+        assigns = [conn: conn, flag: flag] ++ fetch_flag_audit_logs(conn, name, conn.query_params)
+        html_resp(conn, 200, Templates._flag_panel(assigns))
       {:error, _} ->
-        body = Templates.not_found(conn: conn, name: name)
-        html_resp(conn, 404, body)
+        html_resp(conn, 404, Templates._flag_panel_not_found(conn: conn, name: name))
     end
   end
 
@@ -119,7 +122,11 @@ defmodule FunWithFlags.UI.Router do
     |> String.to_existing_atom()
     |> FunWithFlags.clear(audit_opts(conn))
 
-    redirect_to conn, "/flags"
+    # The list says "Deleted <name>." once, carried in the session so only a
+    # real deletion can produce it (see take_deleted_name/1).
+    conn
+    |> put_deleted_name(name)
+    |> redirect_to("/flags")
   end
 
 
@@ -135,7 +142,7 @@ defmodule FunWithFlags.UI.Router do
       FunWithFlags.disable(flag_name, audit_opts(conn))
     end
 
-    redirect_to conn, "/flags/#{name}"
+    redirect_to conn, flag_location(name)
   end
 
 
@@ -144,64 +151,60 @@ defmodule FunWithFlags.UI.Router do
   delete "/flags/:name/boolean" do
     flag_name = String.to_existing_atom(name)
     FunWithFlags.clear(flag_name, [boolean: true] ++ audit_opts(conn))
-    redirect_to conn, "/flags/#{name}"
+    redirect_to conn, flag_location(name)
   end
 
 
   # to toggle an actor gate
   #
   patch "/flags/:name/actors/:actor_id" do
-    enabled = Utils.parse_bool(conn.params["enabled"])
-    flag_name = String.to_existing_atom(name)
-    actor = %SimpleActor{id: actor_id}
-
-    if enabled do
-      FunWithFlags.enable(flag_name, [for_actor: actor] ++ audit_opts(conn))
-    else
-      FunWithFlags.disable(flag_name, [for_actor: actor] ++ audit_opts(conn))
-    end
-
-    redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
+    toggle_actor(conn, name, actor_id)
   end
 
 
   # to clear an actor gate
   #
   delete "/flags/:name/actors/:actor_id" do
-    flag_name = String.to_existing_atom(name)
-    actor = %SimpleActor{id: actor_id}
+    clear_actor(conn, name, actor_id)
+  end
 
-    FunWithFlags.clear(flag_name, [for_actor: actor] ++ audit_opts(conn))
-    redirect_to conn, "/flags/#{name}#actor_gates"
+
+  # The same two, with the actor ID in the body (`actor_id`) instead of the
+  # path. Used for IDs that can't be a path segment: "." and ".." are
+  # dot-segments, which browsers resolve away, so a Clear form posting to
+  # /flags/foo/actors/.. would DELETE /flags/foo, the whole flag.
+  #
+  patch "/flags/:name/actors" do
+    with_body_target(conn, name, "actor_id", "actor ID", &toggle_actor/3)
+  end
+
+  delete "/flags/:name/actors" do
+    with_body_target(conn, name, "actor_id", "actor ID", &clear_actor/3)
   end
 
 
   # to toggle a group gate
   #
   patch "/flags/:name/groups/:group_name" do
-    enabled = Utils.parse_bool(conn.params["enabled"])
-    flag_name = String.to_existing_atom(name)
-    group_name = to_string(group_name)
-
-    if enabled do
-      FunWithFlags.enable(flag_name, [for_group: group_name] ++ audit_opts(conn))
-    else
-      FunWithFlags.disable(flag_name, [for_group: group_name] ++ audit_opts(conn))
-    end
-
-    redirect_to conn, "/flags/#{name}#group_#{group_name}"
+    toggle_group(conn, name, group_name)
   end
 
 
   # to clear a group gate
   #
   delete "/flags/:name/groups/:group_name" do
-    flag_name = String.to_existing_atom(name)
-    group_name = to_string(group_name)
+    clear_group(conn, name, group_name)
+  end
 
-    FunWithFlags.clear(flag_name, [for_group: group_name] ++ audit_opts(conn))
 
-    redirect_to conn, "/flags/#{name}#group_gates"
+  # Group name in the body (`group_name`); see the actor routes above.
+  #
+  patch "/flags/:name/groups" do
+    with_body_target(conn, name, "group_name", "group name", &toggle_group/3)
+  end
+
+  delete "/flags/:name/groups" do
+    with_body_target(conn, name, "group_name", "group name", &clear_group/3)
   end
 
 
@@ -210,7 +213,7 @@ defmodule FunWithFlags.UI.Router do
   delete "/flags/:name/percentage" do
     flag_name = String.to_existing_atom(name)
     FunWithFlags.clear(flag_name, [for_percentage: true] ++ audit_opts(conn))
-    redirect_to conn, "/flags/#{name}"
+    redirect_to conn, flag_location(name)
   end
 
 
@@ -229,11 +232,9 @@ defmodule FunWithFlags.UI.Router do
         else
           FunWithFlags.disable(flag_name, [for_actor: actor] ++ audit_opts(conn))
         end
-        redirect_to conn, "/flags/#{name}#actor_#{actor_id}"
+        redirect_to conn, flag_location(name, "actor_#{actor_id}")
       {:fail, reason} ->
-        {:ok, flag} = Utils.get_flag(name)
-        body = Templates.details(conn: conn, flag: flag, actor_error_message: "The actor ID #{reason}.")
-        html_resp(conn, 400, body)
+        render_flags_page(conn, 400, name, actor_error_message: "The actor ID #{reason}.")
     end
   end
 
@@ -252,11 +253,9 @@ defmodule FunWithFlags.UI.Router do
         else
           FunWithFlags.disable(flag_name, [for_group: group_name] ++ audit_opts(conn))
         end
-        redirect_to conn, "/flags/#{name}#group_#{group_name}"
+        redirect_to conn, flag_location(name, "group_#{group_name}")
       {:fail, reason} ->
-        {:ok, flag} = Utils.get_flag(name)
-        body = Templates.details(conn: conn, flag: flag, group_error_message: "The group name #{reason}.")
-        html_resp(conn, 400, body)
+        render_flags_page(conn, 400, name, group_error_message: "The group name #{reason}.")
     end
   end
 
@@ -267,14 +266,21 @@ defmodule FunWithFlags.UI.Router do
     flag_name = String.to_existing_atom(name)
     type = Utils.parse_percentage_type(conn.params["percent_type"])
 
-    case Utils.parse_and_validate_float(conn.params["percent_value"]) do
+    # The panel's form says which unit it sends (`percent_unit=percent`,
+    # rendered by the server, so the label and the parse always agree);
+    # without it the value is a fraction, as before.
+    parsed =
+      case conn.params["percent_unit"] do
+        "percent" -> Utils.parse_and_validate_percent(conn.params["percent_value"])
+        _ -> Utils.parse_and_validate_float(conn.params["percent_value"])
+      end
+
+    case parsed do
       {:ok, float} ->
         FunWithFlags.enable(flag_name, [for_percentage_of: {type, float}] ++ audit_opts(conn))
-        redirect_to conn, "/flags/#{name}#percentage_gate"
+        redirect_to conn, flag_location(name, "percentage_gate")
       {:fail, reason} ->
-        {:ok, flag} = Utils.get_flag(name)
-        body = Templates.details(conn: conn, flag: flag, percentage_error_message: "The percentage value #{reason}.")
-        html_resp(conn, 400, body)
+        render_flags_page(conn, 400, name, percentage_error_message: "The percentage value #{reason}.")
     end
   end
 
@@ -357,7 +363,7 @@ defmodule FunWithFlags.UI.Router do
       html_resp(conn, 403, Templates.settings(%{
         conn: conn,
         import_disabled: true,
-        import_error_message: "Import is disabled in production."
+        import_error_message: "Import is only available in development."
       }))
     else
       handle_import(conn)
@@ -368,6 +374,139 @@ defmodule FunWithFlags.UI.Router do
   match _ do
     send_resp(conn, 404, "")
   end
+
+
+  defp toggle_actor(conn, name, actor_id) do
+    enabled = Utils.parse_bool(conn.params["enabled"])
+    flag_name = String.to_existing_atom(name)
+    actor = %SimpleActor{id: actor_id}
+
+    if enabled do
+      FunWithFlags.enable(flag_name, [for_actor: actor] ++ audit_opts(conn))
+    else
+      FunWithFlags.disable(flag_name, [for_actor: actor] ++ audit_opts(conn))
+    end
+
+    redirect_to conn, flag_location(name, "actor_#{actor_id}")
+  end
+
+  defp clear_actor(conn, name, actor_id) do
+    flag_name = String.to_existing_atom(name)
+    actor = %SimpleActor{id: actor_id}
+
+    FunWithFlags.clear(flag_name, [for_actor: actor] ++ audit_opts(conn))
+    redirect_to conn, flag_location(name, "actor_gates")
+  end
+
+  defp toggle_group(conn, name, group_name) do
+    enabled = Utils.parse_bool(conn.params["enabled"])
+    flag_name = String.to_existing_atom(name)
+    group_name = to_string(group_name)
+
+    if enabled do
+      FunWithFlags.enable(flag_name, [for_group: group_name] ++ audit_opts(conn))
+    else
+      FunWithFlags.disable(flag_name, [for_group: group_name] ++ audit_opts(conn))
+    end
+
+    redirect_to conn, flag_location(name, "group_#{group_name}")
+  end
+
+  defp clear_group(conn, name, group_name) do
+    flag_name = String.to_existing_atom(name)
+    group_name = to_string(group_name)
+
+    FunWithFlags.clear(flag_name, [for_group: group_name] ++ audit_opts(conn))
+    redirect_to conn, flag_location(name, "group_gates")
+  end
+
+  # Only for existing gates whose target can't be a path segment, so any
+  # non-blank value is accepted (`Utils.validate/1` would reject "." and "..",
+  # the very targets these routes exist for). A missing or blank one, e.g. an
+  # old form whose /actors/. action was resolved to /actors, changes nothing.
+  #
+  defp with_body_target(conn, name, param, label, fun) do
+    case conn.params[param] do
+      target when is_binary(target) and target != "" ->
+        fun.(conn, name, target)
+
+      _ ->
+        render_flags_page(conn, 400, name, [{error_key(param), "The #{label} can't be blank."}])
+    end
+  end
+
+  defp error_key("actor_id"), do: :actor_error_message
+  defp error_key("group_name"), do: :group_error_message
+
+
+  # The one render path for the flags page, shared by `GET /flags`,
+  # `GET /flags/:name` and the validation-error branches of the POST routes,
+  # so the panel always gets its audit log assigns.
+  #
+  # The selected flag is picked from `all_flags` rather than looked up
+  # separately: no atom is created for unknown names, and one query fewer.
+  #
+  defp render_flags_page(conn, status, name, extra_assigns \\ []) do
+    {conn, deleted_name} = if name, do: {conn, nil}, else: take_deleted_name(conn)
+    {:ok, flags} = FunWithFlags.all_flags()
+    flags = Utils.sort_flags(flags)
+    flag = name && Enum.find(flags, &(to_string(&1.name) == name))
+
+    {status, panel_assigns} =
+      cond do
+        flag -> {status, fetch_flag_audit_logs(conn, name, conn.query_params)}
+        name -> {404, []}
+        true -> {status, []}
+      end
+
+    assigns =
+      [
+        conn: conn,
+        flags: flags,
+        flag: flag,
+        selected_name: name,
+        any_created: Templates.any_created_at?(flags),
+        viewer: get_audit_user_id(conn),
+        deleted_name: deleted_name
+      ] ++ panel_assigns ++ extra_assigns
+
+    html_resp(conn, status, Templates.index(assigns))
+  end
+
+
+  # "Deleted <name>." on the list after a delete: the name rides in the
+  # session from the DELETE to the next list render, which reads and drops
+  # it, so no link can show the banner. Without a session (the host has no
+  # session plug) there is no banner. Capped: the page shows at most
+  # @deleted_name_max characters of it.
+  @deleted_session_key "fwf_deleted_flag"
+  @deleted_name_max 120
+
+  defp put_deleted_name(conn, name) do
+    Plug.Conn.put_session(conn, @deleted_session_key, String.slice(name, 0, @deleted_name_max + 1))
+  rescue
+    ArgumentError -> conn
+  end
+
+  defp take_deleted_name(conn) do
+    case Plug.Conn.get_session(conn, @deleted_session_key) do
+      name when is_binary(name) and name != "" ->
+        {Plug.Conn.delete_session(conn, @deleted_session_key), truncate(name, @deleted_name_max)}
+
+      _ ->
+        {conn, nil}
+    end
+  rescue
+    ArgumentError -> {conn, nil}
+  end
+
+  defp truncate(text, max) do
+    if String.length(text) > max, do: String.slice(text, 0, max) <> "…", else: text
+  end
+
+
+  defp flag_location(name), do: "/flags/" <> Templates.url_safe(name)
+  defp flag_location(name, anchor), do: flag_location(name) <> "#" <> Templates.url_safe(anchor)
 
 
   defp html_resp(conn, status, body) do

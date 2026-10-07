@@ -1,0 +1,37 @@
+<div class="fwf-panel fwf-fade-in" data-name="<%= html_escape(@flag.name) %>" data-title="<%= html_escape(@flag.name) %>">
+  <%= icon_symbols(["cancel"]) %>
+  <a class="fwf-back" href="<%= path(@conn, "/flags") %>"><%= icon(@conn, "arrow-left") %>All flags</a>
+
+  <header class="fwf-ph">
+    <div class="fwf-ph-row">
+      <h1 class="fwf-panel-title"><%= html_breakable_name(@flag.name) %></h1>
+      <%= html_status_pill(@flag) %>
+      <button type="button" class="fwf-btn fwf-btn--quiet fwf-btn--sm fwf-copy fwf-js-only" data-copy="<%= html_escape(@flag.name) %>" title="Copy name (c)" aria-keyshortcuts="c"><%= icon(@conn, "copy") %><span>Copy name</span></button>
+    </div>
+    <p class="fwf-summary"><%= flag_summary(@flag) %></p>
+    <%= html_for_viewer(@conn, @flag) %>
+  </header>
+
+  <section class="fwf-section" id="boolean_gate" aria-labelledby="fwf-h-default">
+    <div class="fwf-section-head">
+      <h2 id="fwf-h-default">Default</h2>
+      <span class="fwf-section-hint">for anyone not matched by a gate below</span>
+    </div>
+    <%= _boolean_row(conn: @conn, flag: @flag) %>
+  </section>
+
+  <%= _gate_section(conn: @conn, flag: @flag, kind: "actors", gates: Utils.actor_gates(@flag), error_message: assigns[:actor_error_message]) %>
+  <%= _gate_section(conn: @conn, flag: @flag, kind: "groups", gates: Utils.group_gates(@flag), error_message: assigns[:group_error_message]) %>
+  <%= _percentage_section(conn: @conn, flag: @flag, gate: Utils.percentage_gate(@flag), error_message: assigns[:percentage_error_message]) %>
+
+  <%= _audit_log_section(assigns) %>
+
+  <section class="fwf-section fwf-danger-zone" id="danger_zone" aria-label="Delete flag">
+    <form id="fwf-delete-flag-form" action="<%= flag_path(@conn, @flag.name) %>" method="post">
+      <input type="hidden" name="_method" value="DELETE">
+      <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+      <button type="submit" class="fwf-btn fwf-btn--quiet fwf-btn--sm" data-confirm="Delete the flag <%= html_escape(@flag.name) %> and all its gates? This cannot be undone."><%= icon(@conn, "delete") %>Delete flag…</button>
+    </form>
+    <span class="fwf-hint">Removes the flag and all its gates.</span>
+  </section>
+</div>

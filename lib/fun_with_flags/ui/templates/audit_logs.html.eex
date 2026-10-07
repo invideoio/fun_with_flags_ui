@@ -2,55 +2,36 @@
 <html lang="en">
   <%= _head(conn: @conn, title: "Audit Logs") %>
   <body>
-    <nav id="fwf-top-bar" class="navbar navbar-inverse navbar-toggleable-xl">
-      <a class="navbar-brand" href="https://github.com/tompave/fun_with_flags">FunWithFlags</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/flags") %>">all flags</a>
-          </li>
+    <%= _header(conn: @conn, active: :audit) %>
 
-          <li class="nav-item active">
-            <a class="nav-link" href="">audit logs</a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="<%= path(@conn, "/settings") %>">settings</a>
-          </li>
-        </ul>
-
-        <a href="<%= path(@conn, "/new") %>" class="btn btn-secondary">New Flag</a>
+    <main class="fwf-page">
+      <div class="fwf-page-head">
+        <h1>Audit log</h1>
+        <%= if assigns[:audit_total] do %>
+          <span class="fwf-page-sub"><%= @audit_total %> entries</span>
+        <% end %>
       </div>
-    </nav>
-
-    <div class="container mt-3">
-      <h1>Audit Logs</h1>
 
       <%= if assigns[:audit_disabled] do %>
-        <div class="alert alert-warning" role="alert">
-          Audit logging is not enabled. Configure <code>:audit_logs</code> in your <code>fun_with_flags</code> config to enable it.
+        <div class="fwf-banner fwf-banner--warning" role="alert">
+          <p>Audit logging is not enabled. Configure <code>:audit_logs</code> in your <code>fun_with_flags</code> config to enable it.</p>
         </div>
       <% else %>
-        <form class="form-inline mb-3" method="get" action="<%= path(@conn, "/audit_logs") %>">
-          <div class="input-group fwf-wide-input">
-            <input type="text"
-                   class="form-control"
-                   name="flag_name"
-                   placeholder="Search by flag name..."
-                   value="<%= html_escape(assigns[:search_flag_name] || "") %>">
-            <span class="input-group-btn">
-              <button class="btn btn-secondary" type="submit">Search</button>
-            </span>
-          </div>
+        <form class="fwf-search-form" method="get" action="<%= path(@conn, "/audit_logs") %>" role="search">
+          <label class="fwf-sr" for="fwf-audit-search">Flag name</label>
+          <input type="search" id="fwf-audit-search" class="fwf-input fwf-input--mono" name="flag_name" data-page-search aria-keyshortcuts="/"
+                 placeholder="Filter by flag name"
+                 value="<%= html_escape(assigns[:search_flag_name] || "") %>">
+          <button class="fwf-btn" type="submit">Search</button>
           <%= if assigns[:search_flag_name] && assigns[:search_flag_name] != "" do %>
-            <a href="<%= path(@conn, "/audit_logs") %>" class="btn btn-link">Clear</a>
+            <a href="<%= path(@conn, "/audit_logs") %>" class="fwf-btn fwf-btn--quiet">Clear</a>
           <% end %>
         </form>
 
         <%= _audit_log_table(assigns) %>
         <%= _audit_log_pagination(assigns) %>
       <% end %>
-    </div>
+    </main>
     <script type="text/javascript" src="<%= path(@conn, "/assets/audit_logs.js") %>"></script>
   </body>
 </html>

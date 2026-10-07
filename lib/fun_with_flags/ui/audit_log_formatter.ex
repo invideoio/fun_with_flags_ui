@@ -20,6 +20,7 @@ defmodule FunWithFlags.UI.AuditLogFormatter do
     end)
   end
 
+  defp normalize_keys(list) when is_list(list), do: Enum.map(list, &normalize_keys/1)
   defp normalize_keys(other), do: other
 
   defp describe_data(%{"action" => "enable", "gate" => gate}) do
@@ -32,6 +33,24 @@ defmodule FunWithFlags.UI.AuditLogFormatter do
 
   defp describe_data(%{"action" => "clear_flag"}) do
     "Cleared all gates"
+  end
+
+  # Removing a percentage gate: the core library logs the placeholder gate it
+  # deletes with (percentage_of_time 0.5, fun_with_flags.ex), whatever the
+  # real gate was. The row's flag_state_before has the real one; without
+  # it, say only that the rollout was removed. Never print the placeholder.
+  defp describe_data(%{"action" => "clear_gate", "gate" => %{"type" => type}} = data)
+       when type in ["percentage_of_time", "percentage_of_actors"] do
+    case percentage_gate_before(data) do
+      %{"type" => "percentage_of_actors", "target" => target} ->
+        "Removed the #{format_percentage(target)} of actors rollout"
+
+      %{"type" => "percentage_of_time", "target" => target} ->
+        "Removed the #{format_percentage(target)} of the time rollout"
+
+      _ ->
+        "Removed the percentage rollout"
+    end
   end
 
   defp describe_data(%{"action" => "clear_gate", "gate" => gate}) do
@@ -57,6 +76,15 @@ defmodule FunWithFlags.UI.AuditLogFormatter do
   end
 
   defp describe_data(_), do: "Unknown action"
+
+  defp percentage_gate_before(%{"flag_state_before" => %{"gates" => gates}}) when is_list(gates) do
+    Enum.find(gates, fn
+      %{"type" => t, "target" => target} when t in ["percentage_of_time", "percentage_of_actors"] and not is_nil(target) -> true
+      _ -> false
+    end)
+  end
+
+  defp percentage_gate_before(_), do: nil
 
   defp describe_gate_action(verb, %{"type" => "boolean"}) do
     "#{verb} boolean gate"
@@ -86,14 +114,15 @@ defmodule FunWithFlags.UI.AuditLogFormatter do
     "#{verb} gate"
   end
 
+  # The same text as the panel ("42.1337%", "10%"), not a rounded one.
   defp format_percentage(val) when is_binary(val) do
     case Float.parse(val) do
-      {f, _} -> "#{round(f * 100)}%"
-      :error -> val
+      {f, _} -> format_percentage(f)
+      :error -> html_escape(val)
     end
   end
 
-  defp format_percentage(val) when is_float(val), do: "#{round(val * 100)}%"
+  defp format_percentage(val) when is_float(val), do: FunWithFlags.UI.Templates.percent_text(val)
   defp format_percentage(val) when is_integer(val), do: "#{val}%"
   defp format_percentage(val), do: to_string(val)
 

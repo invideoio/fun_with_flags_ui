@@ -217,6 +217,15 @@ defmodule FunWithFlags.UI.UtilsTest do
       assert {:fail, "includes invalid characters: '?'"} = Utils.validate(:banana?)
     end
 
+    test "it returns {:fail, reason} for '.' and '..' (URL dot-segments)" do
+      assert {:fail, "can't be '.' or '..'"} = Utils.validate(".")
+      assert {:fail, "can't be '.' or '..'"} = Utils.validate("..")
+      assert {:fail, "can't be '.' or '..'"} = Utils.validate(:..)
+      assert :ok = Utils.validate("...")
+      assert :ok = Utils.validate("a.b")
+      assert :ok = Utils.validate("user:..")
+    end
+
     test "it returns :ok otherwise" do
       assert :ok = Utils.validate(:foo_bar_CiaoCiao)
     end

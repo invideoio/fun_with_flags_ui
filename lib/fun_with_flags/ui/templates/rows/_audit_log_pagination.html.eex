@@ -3,40 +3,13 @@
 <% total = assigns[:audit_total] || 0 %>
 
 <%= if total_pages > 1 do %>
-  <nav aria-label="Audit log pagination">
-    <ul class="pagination">
-      <%= if page > 1 do %>
-        <li class="page-item">
-          <a class="page-link" href="<%= audit_log_page_path(@conn, page - 1, assigns) %>">Previous</a>
-        </li>
-      <% else %>
-        <li class="page-item disabled">
-          <span class="page-link">Previous</span>
-        </li>
-      <% end %>
-
-      <%= for p <- pagination_range(page, total_pages) do %>
-        <%= if p == :ellipsis do %>
-          <li class="page-item disabled">
-            <span class="page-link">&hellip;</span>
-          </li>
-        <% else %>
-          <li class="page-item <%= if p == page, do: "active" %>">
-            <a class="page-link" href="<%= audit_log_page_path(@conn, p, assigns) %>"><%= p %></a>
-          </li>
-        <% end %>
-      <% end %>
-
-      <%= if page < total_pages do %>
-        <li class="page-item">
-          <a class="page-link" href="<%= audit_log_page_path(@conn, page + 1, assigns) %>">Next</a>
-        </li>
-      <% else %>
-        <li class="page-item disabled">
-          <span class="page-link">Next</span>
-        </li>
-      <% end %>
-    </ul>
+  <nav class="fwf-pager pagination" aria-label="Audit log pagination">
+    <%= if page > 1 do %>
+      <a class="fwf-btn fwf-btn--sm page-link" href="<%= audit_log_page_path(@conn, page - 1, assigns) %>"><%= icon(@conn, "arrow-left") %>Newer</a>
+    <% end %>
+    <%= if page < total_pages do %>
+      <a class="fwf-btn fwf-btn--sm page-link" href="<%= audit_log_page_path(@conn, page + 1, assigns) %>">Older<%= icon(@conn, "arrow-right") %></a>
+    <% end %>
+    <span class="fwf-pager-info fwf-pager-gap">Page <%= page %> of <%= total_pages %> · <%= total %> entries</span>
   </nav>
-  <p class="text-muted"><small>Total: <%= total %> entries</small></p>
 <% end %>
