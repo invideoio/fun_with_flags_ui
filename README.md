@@ -6,7 +6,9 @@
 
 A Web dashboard for the [FunWithFlags](https://github.com/tompave/fun_with_flags) Elixir package.
 
-![](https://raw.githubusercontent.com/tompave/fun_with_flags_ui/master/demo/demo.gif)
+![Searching flags by actor ID, filtering to partial flags, opening a flag and the shortcut sheet](demo/demo.gif)
+
+Screenshots: [dark](demo/flags-dark.png) · [light](demo/flags-light.png) · [phone](demo/flags-phone.png)
 
 
 ## How to run
