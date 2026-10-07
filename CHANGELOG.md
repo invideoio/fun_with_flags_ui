@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 (unreleased)
+## v1.2.0 (2026-10-07)
 
 * The flag list and the flag details are now one two-column page: search (flag names, actor IDs and group names), status / gate type / pinned / new / mine filters and sorting on top, the list on the left, the selected flag's gates on the right. `GET /flags/:name` renders the same page with that flag selected; `GET /flags/:name/panel` returns just its panel. Filters live in the query string. Flag states read "On", "Partial" and "Off".
 * Flag names and actor IDs are percent-encoded as path segments in links, form actions and redirects, so flags with names like `:"Ook? Ook!"` and actor IDs containing `/` can be opened and edited.
