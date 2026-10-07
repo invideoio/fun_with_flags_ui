@@ -15,13 +15,13 @@
       </form>
     <% end %>
     <%= if status == {:ok, false} do %>
-      <span class="fwf-seg-item is-current" aria-current="true">Off</span>
+      <span class="fwf-seg-item is-current fwf-seg-off" aria-current="true">Off</span>
     <% else %>
       <form id="fwf-global-disable-form" action="<%= form_path %>" method="post">
         <input type="hidden" name="_method" value="PATCH">
         <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
         <input type="hidden" name="enabled" value="false">
-        <button id="disable-boolean-btn" type="submit" class="fwf-seg-item">Off</button>
+        <button id="disable-boolean-btn" type="submit" class="fwf-seg-item<%= if status == :missing, do: " fwf-seg-off is-implied" %>">Off</button>
       </form>
     <% end %>
   </div>

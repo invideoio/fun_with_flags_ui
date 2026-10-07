@@ -267,6 +267,21 @@ defmodule FunWithFlags.UI.TemplatesTest do
       assert String.contains?(out, ~s{<button id="clear-boolean-btn" type="submit"})
     end
 
+    test "the default state carries its colour class: On, Off, and not set (counts as Off)", %{conn: conn, flag: flag} do
+      on = Templates._flag_panel(conn: conn, flag: %Flag{flag | gates: [Gate.new(:boolean, true)]})
+      assert on =~ ~s{<span class="fwf-seg-item is-current fwf-seg-on" aria-current="true">On</span>}
+      refute on =~ "fwf-seg-off"
+
+      off = Templates._flag_panel(conn: conn, flag: %Flag{flag | gates: [Gate.new(:boolean, false)]})
+      assert off =~ ~s{<span class="fwf-seg-item is-current fwf-seg-off" aria-current="true">Off</span>}
+      refute off =~ "fwf-seg-on"
+
+      missing = Templates._flag_panel(conn: conn, flag: flag)
+      assert missing =~ ~s{<button id="disable-boolean-btn" type="submit" class="fwf-seg-item fwf-seg-off is-implied">Off</button>}
+      assert missing =~ ~s{<button id="enable-boolean-btn" type="submit" class="fwf-seg-item">On</button>}
+      assert missing =~ "Not set — counts as Off."
+    end
+
 
     test "with no gates it reports the lists as empty", %{conn: conn, flag: flag} do
       group_gate = %Gate{type: :group, for: :rocks, enabled: true}

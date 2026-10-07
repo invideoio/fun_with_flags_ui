@@ -14,8 +14,9 @@
  * line or ring colour. Inter for UI text, a system monospace for
  * identifiers.
  * One small radius everywhere, no pill/stadium shapes. Status colours are
- * semantic: On green, Partial amber, Off grey (a normal state), red only
- * for destructive actions.
+ * read at a glance: On green, Partial amber, Off red (calm shades, as in
+ * the original UI). Destructive actions stay quiet at rest and only turn
+ * red on hover/focus, so red at rest always means "off".
  */
 
 @font-face {
@@ -81,8 +82,12 @@
   --on-bg: #dcefdf;
   --partial: #7a4a00;
   --partial-bg: #f9e7bf;
-  --off: #4f4b46;
-  --off-bg: #e3dfda;
+  --off: #a4271b;
+  --off-bg: #f9dfda;
+  /* the selected Default segment: a solid state fill with white ink */
+  --state-on-fill: #1d7a3c;
+  --state-off-fill: #b42318;
+  --state-ink: #ffffff;
   --danger: #a82a06;
   --danger-bg: #f8e1d9;
   --warning-bg: #f9ecd0;
@@ -107,8 +112,8 @@
   --field-hover: #ddd8d2;
   --btn: #d8d2cb;
   --btn-hover: #cfc8c0;
-  /* switch: neutral when off, a calm green when on, a light knob */
-  --switch-off: #bdb7af;
+  /* switch: a calm red when off, a calm green when on, a light knob */
+  --switch-off: #c2554a;
   --switch-on: #2f8a4c;
   --switch-knob: #ffffff;
   --shadow: 0 1px 2px rgba(22, 22, 22, 0.06), 0 8px 24px rgba(22, 22, 22, 0.10);
@@ -140,8 +145,11 @@
   --on-bg: #1f3325;
   --partial: #f0c35a;
   --partial-bg: #3a3020;
-  --off: #bdb8b1;
-  --off-bg: #2e2d2b;
+  --off: #ff9b8a;
+  --off-bg: #3a2320;
+  --state-on-fill: #1f8443;
+  --state-off-fill: #c9362b;
+  --state-ink: #ffffff;
   --danger: #ff8a6b;
   --danger-bg: #3b2420;
   --warning-bg: #352d1c;
@@ -161,7 +169,7 @@
   --field-hover: #393834;
   --btn: #403f3b;
   --btn-hover: #4b4a45;
-  --switch-off: #4a4844;
+  --switch-off: #b24a40;
   --switch-on: #368a52;
   --switch-knob: #f7f5f3;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
@@ -554,7 +562,7 @@ html.fwf-js .fwf-nojs-only {
   background: transparent;
 }
 
-/* Neutral when off, a calm green when on, a light knob; no outline. */
+/* A calm red when off, a calm green when on, a light knob; no outline. */
 .fwf-switch-track {
   position: relative;
   width: 28px;
@@ -1690,6 +1698,29 @@ button.fwf-banner-close {
 
 .fwf-default .fwf-reset {
   margin-left: auto;
+}
+
+/* One glance: the selected Default segment is a solid green (On) or red
+   (Off) fill with white ink, a step larger than other segments. "Not set"
+   counts as Off, so its Off segment takes the red fill too (it is still
+   the button that sets an explicit Off; the hint beside it says so). */
+.fwf-default .fwf-seg-item {
+  height: calc(var(--control-h) - 4px);
+  padding: 0 16px;
+  font-size: var(--fs-md);
+}
+
+.fwf-default .fwf-seg .fwf-seg-on.is-current {
+  background: var(--state-on-fill);
+  color: var(--state-ink);
+}
+
+.fwf-default .fwf-seg .fwf-seg-off.is-current,
+.fwf-default .fwf-seg .fwf-seg-off.is-implied,
+.fwf-default .fwf-seg .fwf-seg-off.is-implied:hover {
+  background: var(--state-off-fill);
+  color: var(--state-ink);
+  font-weight: 600;
 }
 
 /* --- Gate rows (actors, groups) --- */
