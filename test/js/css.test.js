@@ -274,7 +274,7 @@ test("base controls are fills: inputs on --field, secondary buttons on --btn", (
   assert.ok(focus.length && focus.every((r) => /^2px solid var\(--focus\)/.test(r.decls.outline)));
 });
 
-test("the selected segment is unmistakable: an inverse fill, not a tint", () => {
+test("the selected segment is unmistakable: an inverse fill, not a tint (status-neutral segments)", () => {
   for (const sel of ['.fwf-seg [aria-pressed="true"]', ".fwf-seg .is-current", ".fwf-seg > label:has(input:checked)"]) {
     const r = RULES.find((x) => x.selectors.includes(sel));
     assert.ok(r, sel);
@@ -295,8 +295,10 @@ test("fills keep text at AA in both themes; buttons read a step stronger than fi
     }
     assert.ok(contrast(t["--field"], t["--surface"]) >= 1.2, "field visible on the card " + contrast(t["--field"], t["--surface"]).toFixed(2));
     assert.ok(contrast(t["--btn"], t["--surface"]) > contrast(t["--field"], t["--surface"]));
-    // the switch: on is a calm green at 3:1 against the card; the knob is light
+    // the switch: on a calm green, off a calm red, both 3:1 against the card
+    // (the track is the only indicator); the knob is light
     assert.ok(contrast(t["--switch-on"], t["--surface"]) >= 3, "switch on vs surface");
+    assert.ok(contrast(t["--switch-off"], t["--surface"]) >= 3, "switch off vs surface " + contrast(t["--switch-off"], t["--surface"]).toFixed(2));
     assert.ok(luminance(t["--switch-knob"]) > 0.8);
     // the selected list row keeps its secondary text at AA
     assert.ok(contrast(t["--text-2"], t["--selected"]) >= 4.5);
@@ -341,4 +343,75 @@ test("two-column scroll columns and segment labels contain their absolute descen
   const absInSeg = rules.filter((r) => r.selectors.some((s) => /^\.fwf-seg > label input$/.test(s)) && r.decls.position === "absolute");
   assert.ok(absInSeg.length > 0, "the hidden segment radio is absolute (the guard is meaningful)");
   assert.ok(rules.some((r) => r.selectors.includes(".fwf-seg > label") && r.decls.position === "relative"), ".fwf-seg > label is relative");
+});
+
+// v1.2.1: engineers read the flag page by colour. Off is red again (list
+// pill, panel header pill, switch track) and the Default control's selected
+// segment is a solid green / red fill, readable at a glance.
+const isRed = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return r > g * 1.4 && r > b * 1.4; };
+const isGreen = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return g > r * 1.3 && g > b * 1.2; };
+
+test("status pills: On green, Partial amber, Off red, text at AA on its tint", () => {
+  for (const [sel, fg, bg] of [[".fwf-pill-on", "--on", "--on-bg"], [".fwf-pill-partial", "--partial", "--partial-bg"], [".fwf-pill-off", "--off", "--off-bg"]]) {
+    const r = RULES.find((x) => x.selectors.includes(sel));
+    assert.equal(r.decls.background, `var(${bg})`, sel);
+    assert.equal(r.decls.color, `var(${fg})`, sel);
+  }
+  for (const t of [tokens(":root"), tokens('[data-theme="dark"]')]) {
+    assert.ok(isGreen(t["--on"]), "--on is green " + t["--on"]);
+    assert.ok(isRed(t["--off"]), "--off is red " + t["--off"]);
+    for (const [fg, bg] of [["--on", "--on-bg"], ["--partial", "--partial-bg"], ["--off", "--off-bg"]]) {
+      assert.ok(contrast(t[fg], t[bg]) >= 4.5, `${fg} on ${bg} ` + contrast(t[fg], t[bg]).toFixed(2));
+    }
+  }
+});
+
+test("the selected Default segment is a solid green (On) / red (Off, also 'not set') fill with white ink", () => {
+  const rule = (sel) => RULES.find((x) => x.selectors.includes(sel));
+  const on = rule(".fwf-default .fwf-seg .fwf-seg-on.is-current");
+  assert.equal(on.decls.background, "var(--state-on-fill)");
+  assert.equal(on.decls.color, "var(--state-ink)");
+  for (const sel of [".fwf-default .fwf-seg .fwf-seg-off.is-current", ".fwf-default .fwf-seg .fwf-seg-off.is-implied", ".fwf-default .fwf-seg .fwf-seg-off.is-implied:hover"]) {
+    const r = rule(sel);
+    assert.ok(r, sel);
+    assert.equal(r.decls.background, "var(--state-off-fill)", sel);
+    assert.equal(r.decls.color, "var(--state-ink)", sel);
+    // the state rule out-ranks the generic segment rules, whatever the order
+    for (const generic of [".fwf-seg .is-current", ".fwf-seg-item:hover", ".fwf-seg > button:hover"]) {
+      assert.ok(specificity(sel) > specificity(generic), `${sel} vs ${generic}`);
+    }
+  }
+  assert.ok(specificity(".fwf-default .fwf-seg .fwf-seg-on.is-current") > specificity(".fwf-seg .is-current"));
+  for (const t of [tokens(":root"), tokens('[data-theme="dark"]')]) {
+    assert.ok(isGreen(t["--state-on-fill"]), t["--state-on-fill"]);
+    assert.ok(isRed(t["--state-off-fill"]), t["--state-off-fill"]);
+    assert.ok(luminance(t["--state-ink"]) > 0.9, "white or near-white ink");
+    for (const f of ["--state-on-fill", "--state-off-fill"]) {
+      assert.ok(contrast(t["--state-ink"], t[f]) >= 4.5, `ink on ${f} ` + contrast(t["--state-ink"], t[f]).toFixed(2));
+      // the fill stands out from the card the control sits on
+      assert.ok(contrast(t[f], t["--surface"]) >= 3, `${f} vs surface ` + contrast(t[f], t["--surface"]).toFixed(2));
+    }
+  }
+});
+
+test("switch off track is a calm red, on is green", () => {
+  const off = RULES.find((r) => r.selectors.includes(".fwf-switch-track") && "background" in r.decls);
+  assert.equal(off.decls.background, "var(--switch-off)");
+  for (const t of [tokens(":root"), tokens('[data-theme="dark"]')]) {
+    assert.ok(isRed(t["--switch-off"]), t["--switch-off"]);
+    assert.ok(isGreen(t["--switch-on"]), t["--switch-on"]);
+    // calm, not alarm: no fully saturated red
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(t["--switch-off"].slice(i, i + 2), 16));
+    assert.ok(g > 0x40 && b > 0x30, "a softened red " + t["--switch-off"]);
+  }
+});
+
+test("nothing destructive is red at rest: Delete flag, remove, Reset are quiet until hover/focus", () => {
+  const rest = (sel) => RULES.filter((r) => r.selectors.includes(sel));
+  const danger = (r) => /var\(--danger/.test(r.decls.color || "") || /var\(--danger/.test(r.decls.background || "");
+  for (const sel of [".fwf-danger-zone .fwf-btn", ".fwf-gate .fwf-remove", ".fwf-default .fwf-reset"]) {
+    assert.ok(!rest(sel).some(danger), sel + " is red at rest");
+  }
+  assert.ok(rest(".fwf-gate .fwf-remove:hover").some(danger), "remove turns red on hover");
+  assert.ok(rest(".fwf-danger-zone .fwf-btn:hover").some(danger), "Delete turns red on hover");
 });

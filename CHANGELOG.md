@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1 (2026-10-08)
+
+* Status colours: Off is red again; the default state shows green/red at a glance. Status labels in the list and the panel header read On green, Partial amber, Off red; the panel's Default control fills its selected segment solid green (On) or red (Off, also when not set — "counts as Off"); a disabled actor or group gate has a calm red switch track. Destructive actions (Delete flag, remove, Reset) stay neutral until hover/focus. Presentation only: no request, route or form changes.
+
 ## v1.2.0 (2026-10-07)
 
 * The flag list and the flag details are now one two-column page: search (flag names, actor IDs and group names), status / gate type / pinned / new / mine filters and sorting on top, the list on the left, the selected flag's gates on the right. `GET /flags/:name` renders the same page with that flag selected; `GET /flags/:name/panel` returns just its panel. Filters live in the query string. Flag states read "On", "Partial" and "Off".
