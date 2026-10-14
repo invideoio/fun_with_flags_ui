@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.0 (2026-10-14)
+
+* Add-actor picker: the add-actor form starts with a prefix picker (`email:`, `workspace:`, …, and "Full ID"), so only the part after the prefix is typed. Prefixes come from `config :fun_with_flags_ui, actor_prefixes: [...]` first, then the ones actor gates already use across all flags, most used first. The form sends `actor_prefix` with `actor_id`; the server joins them and doesn't double a prefix that was pasted whole. Requests without `actor_prefix` work as before.
+* Add-group picker: the add-group form lists the group names the host's `FunWithFlags.Group` implementations match, read from their clauses at compile time with `use FunWithFlags.UI.GroupCatalog` (exact names, `"prefix" <> value` patterns with optional value hints, `when group in [...]` guards, private 2-arity helpers), plus "Custom…" for any name. The form sends `group_pick` (`=<name>`, `+<prefix>` or empty) with `group_name`; requests without `group_pick` work as before.
+* Group gates whose name no clause matches are marked "not in code" (only when some implementation uses `GroupCatalog`).
+
 ## v1.2.1 (2026-10-08)
 
 * Status colours: Off is red again; the default state shows green/red at a glance. Status labels in the list and the panel header read On green, Partial amber, Off red; the panel's Default control fills its selected segment solid green (On) or red (Off, also when not set — "counts as Off"); a disabled actor or group gate has a calm red switch track. Destructive actions (Delete flag, remove, Reset) stay neutral until hover/focus. Presentation only: no request, route or form changes.

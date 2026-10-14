@@ -20,8 +20,8 @@
     <%= _boolean_row(conn: @conn, flag: @flag) %>
   </section>
 
-  <%= _gate_section(conn: @conn, flag: @flag, kind: "actors", gates: Utils.actor_gates(@flag), error_message: assigns[:actor_error_message]) %>
-  <%= _gate_section(conn: @conn, flag: @flag, kind: "groups", gates: Utils.group_gates(@flag), error_message: assigns[:group_error_message]) %>
+  <%= _gate_section(conn: @conn, flag: @flag, kind: "actors", gates: Utils.actor_gates(@flag), error_message: assigns[:actor_error_message], prefixes: assigns[:actor_prefixes] || [], prefix: assigns[:actor_prefix]) %>
+  <%= _gate_section(conn: @conn, flag: @flag, kind: "groups", gates: Utils.group_gates(@flag), error_message: assigns[:group_error_message], picker: assigns[:group_picker], pick: assigns[:group_pick]) %>
   <%= _percentage_section(conn: @conn, flag: @flag, gate: Utils.percentage_gate(@flag), error_message: assigns[:percentage_error_message]) %>
 
   <%= _audit_log_section(assigns) %>

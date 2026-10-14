@@ -1754,6 +1754,16 @@ button.fwf-banner-close {
   font-size: var(--fs-sm);
 }
 
+/* A group gate no clause in the code matches (see Templates.group_unmatched?/2). */
+.fwf-gate-warn {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  background: var(--partial-bg);
+  color: var(--partial);
+  font-size: var(--fs-xs);
+}
+
 .fwf-gate .fwf-remove {
   opacity: 0.55;
   font-size: var(--fs-md);
@@ -1825,6 +1835,29 @@ button.fwf-banner-close {
 
 .fwf-add .fwf-error {
   flex-basis: 100%;
+}
+
+/* The actor prefix picker and the value box read as one field: joined,
+   with a 1px seam (the gap minus 1px pulled back). The picker's own
+   option text ends in ':' so "email: | adil@…" reads as the ID. */
+.fwf-add .fwf-add-prefix {
+  flex: none;
+  max-width: min(45%, 200px);
+  margin-right: calc(1px - var(--sp-2));
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.fwf-add .fwf-add-prefix ~ .fwf-input {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* An exact group picked: nothing to type, the box is hidden and the picker
+   takes the row. */
+.fwf-add .fwf-add-prefix:has(~ .fwf-input[hidden]) {
+  flex: 1 1 auto;
+  max-width: none;
+  margin-right: 0;
+  border-radius: var(--radius);
 }
 
 /* --- Percentage --- */

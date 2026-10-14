@@ -155,6 +155,159 @@ defmodule FunWithFlags.UI.Utils do
   end
 
 
+  # Actor ID prefixes ("email", "workspace", ...) for the add-actor prefix
+  # picker: the host's `config :fun_with_flags_ui, actor_prefixes: [...]`
+  # first, in that order, then the prefixes already used by actor gates
+  # across all flags, most used first. A prefix is the part before the
+  # first ':' when it is a plain word, so bare IDs ("en", a judge kind)
+  # contribute nothing.
+  #
+  @actor_prefix_re ~r/^[A-Za-z][A-Za-z0-9_-]*$/
+
+  def actor_prefixes(flags) do
+    configured =
+      :fun_with_flags_ui
+      |> Application.get_env(:actor_prefixes, [])
+      |> Enum.map(&to_string/1)
+      |> Enum.filter(&Regex.match?(@actor_prefix_re, &1))
+
+    used =
+      flags
+      |> Enum.flat_map(fn %Flag{gates: gates} -> gates end)
+      |> Enum.filter(&Gate.actor?/1)
+      |> Enum.flat_map(fn gate -> List.wrap(actor_prefix(to_string(gate.for))) end)
+      |> Enum.frequencies()
+      |> Enum.sort_by(fn {prefix, count} -> {-count, prefix} end)
+      |> Enum.map(&elem(&1, 0))
+
+    Enum.uniq(configured ++ used)
+  end
+
+  def actor_prefix(id) do
+    case String.split(id, ":", parts: 2) do
+      [prefix, rest] when rest != "" ->
+        if Regex.match?(@actor_prefix_re, prefix), do: prefix
+
+      _ ->
+        nil
+    end
+  end
+
+  # The add-group picker: the group names the code matches (every
+  # `FunWithFlags.Group` implementation that `use`s FunWithFlags.UI.GroupCatalog),
+  # plus the group names gates already use that the code doesn't list.
+  #
+  #   %{exact: ["a0", "beta", ...],
+  #     patterns: [%{prefix: "country_group:", placeholder: "...", values: [...]}],
+  #     in_use: ["legacy_group"],   # on a gate, not matched by any clause
+  #     catalog?: true}             # false: no implementation lists its groups
+  #
+  def group_picker(flags) do
+    catalogs = group_catalogs()
+    {exact, prefixes, hints} = merge_catalogs(catalogs)
+
+    patterns =
+      Enum.map(prefixes, fn prefix ->
+        {placeholder, values} = resolve_hint(Map.get(hints, prefix))
+        %{prefix: prefix, placeholder: placeholder, values: values}
+      end)
+
+    picker = %{exact: exact, patterns: patterns, in_use: [], catalog?: catalogs != []}
+
+    in_use =
+      flags
+      |> Enum.flat_map(fn %Flag{gates: gates} -> gates end)
+      |> Enum.filter(&Gate.group?/1)
+      |> Enum.map(&to_string(&1.for))
+      |> Enum.uniq()
+      |> Enum.reject(&group_known?(picker, &1))
+      |> Enum.sort()
+
+    %{picker | in_use: in_use}
+  end
+
+  # Whether a group name is matched by a clause in the code: an exact name, or
+  # a pattern's prefix followed by a value.
+  def group_known?(%{exact: exact, patterns: patterns}, name) do
+    name in exact or
+      Enum.any?(patterns, fn %{prefix: p} -> String.starts_with?(name, p) and name != p end)
+  end
+
+  defp group_catalogs do
+    group_impl_modules()
+    |> Enum.filter(fn mod -> Code.ensure_loaded?(mod) and function_exported?(mod, :__fwf_groups__, 0) end)
+    |> Enum.map(& &1.__fwf_groups__())
+  end
+
+  # Consolidated (releases, usually test): the protocol lists its impls.
+  # Not consolidated (dev): the modules named FunWithFlags.Group.* on the code path.
+  defp group_impl_modules do
+    case FunWithFlags.Group.__protocol__(:impls) do
+      {:consolidated, types} ->
+        Enum.map(types, &Module.concat(FunWithFlags.Group, &1))
+
+      :not_consolidated ->
+        for {name, _file, _loaded} <- :code.all_available(),
+            name = to_string(name),
+            String.starts_with?(name, "Elixir.FunWithFlags.Group."),
+            do: String.to_atom(name)
+    end
+  end
+
+  defp merge_catalogs(catalogs) do
+    groups = Enum.flat_map(catalogs, & &1.groups)
+    exact = for {:exact, name} <- groups, uniq: true, do: name
+    prefixes = for {:prefix, prefix} <- groups, uniq: true, do: prefix
+    hints = Enum.reduce(catalogs, %{}, &Map.merge(&2, &1.hints || %{}))
+    {exact, prefixes, hints}
+  end
+
+  defp resolve_hint(nil), do: {nil, []}
+  defp resolve_hint(text) when is_binary(text), do: {text, []}
+  defp resolve_hint(values) when is_list(values), do: {nil, Enum.map(values, &to_string/1)}
+
+  defp resolve_hint({m, f, a}) do
+    resolve_hint(apply(m, f, a))
+  rescue
+    _ -> {nil, []}
+  end
+
+  defp resolve_hint(_other), do: {nil, []}
+
+  # The add-group form sends the pick (`group_pick`): "=<name>" an exact
+  # group, "+<prefix>" a pattern (the box holds the value), "" or absent a
+  # name typed whole.
+  #
+  def build_group_name(pick, value) do
+    case to_string(pick || "") do
+      "=" <> name -> sanitize(name)
+      "+" <> prefix -> join_prefixed(prefix, value)
+      _ -> sanitize(to_string(value || ""))
+    end
+  end
+
+  # The add-actor form sends the picked prefix (`actor_prefix`, "" for a full
+  # ID typed by hand) and the rest (`actor_id`). A value that already starts
+  # with the picked prefix (pasted whole) is not prefixed twice.
+  #
+  def build_actor_id(prefix, value) do
+    case sanitize(to_string(prefix || "")) do
+      "" -> sanitize(to_string(value || ""))
+      prefix -> join_prefixed(prefix <> ":", value)
+    end
+  end
+
+  defp join_prefixed(prefix, value) do
+    value = sanitize(to_string(value || ""))
+
+    cond do
+      value == "" -> value
+      String.starts_with?(value, prefix) -> value
+      true -> prefix <> value
+    end
+  end
+
+
   def parse_and_validate_float(string) do
     if blank?(string) do
       {:fail, "can't be blank"}

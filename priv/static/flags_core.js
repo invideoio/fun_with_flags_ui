@@ -431,6 +431,33 @@
     return visible === total ? total + " " + noun : visible + " of " + total + " " + noun;
   }
 
+  // --- add-actor prefix picker ------------------------------------------
+
+  // A whole actor ID pasted or typed into the value box ("email:a@b.c"):
+  // when its prefix is one of the picker's, the picker takes the prefix and
+  // the box keeps the rest. null when there is nothing to split.
+  function splitActorId(value, prefixes) {
+    var text = String(value || "").trim();
+    var i = text.indexOf(":");
+    if (i <= 0 || i === text.length - 1) return null;
+    var prefix = text.slice(0, i);
+    if (prefixes.indexOf(prefix) === -1) return null;
+    return { prefix: prefix, rest: text.slice(i + 1) };
+  }
+
+  // A whole group name typed into the Custom box ("country_group:gold"):
+  // when it starts with one of the picker's patterns (prefixes end in their
+  // own separator), the picker takes the pattern and the box keeps the value.
+  // The longest matching prefix wins. null when there is nothing to split.
+  function splitGroupName(value, prefixes) {
+    var text = String(value || "").trim();
+    var best = null;
+    prefixes.forEach(function (p) {
+      if (p && text.length > p.length && text.slice(0, p.length) === p && (!best || p.length > best.length)) best = p;
+    });
+    return best ? { prefix: best, rest: text.slice(best.length) } : null;
+  }
+
   return {
     STATUSES: STATUSES,
     TYPES: TYPES,
@@ -472,6 +499,8 @@
     activeFilterCount: activeFilterCount,
     describeFilters: describeFilters,
     clearedState: clearedState,
-    neighborName: neighborName
+    neighborName: neighborName,
+    splitActorId: splitActorId,
+    splitGroupName: splitGroupName
   };
 });

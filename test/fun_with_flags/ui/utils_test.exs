@@ -201,6 +201,89 @@ defmodule FunWithFlags.UI.UtilsTest do
   end
 
 
+  describe "actor prefixes for the add-actor picker" do
+    setup do
+      on_exit(fn -> Application.delete_env(:fun_with_flags_ui, :actor_prefixes) end)
+    end
+
+    test "actor_prefixes(flags) lists the used prefixes, most used first, ignoring bare IDs and groups" do
+      flags = [
+        %Flag{name: :a, gates: [%Gate{type: :actor, for: "email:x@y.z", enabled: true},
+                                %Gate{type: :actor, for: "workspace:1", enabled: true},
+                                %Gate{type: :actor, for: "en", enabled: true},
+                                %Gate{type: :group, for: "beta", enabled: true}]},
+        %Flag{name: :b, gates: [%Gate{type: :actor, for: "workspace:2", enabled: false},
+                                %Gate{type: :actor, for: "bad prefix:3", enabled: true},
+                                %Gate{type: :actor, for: "user:", enabled: true}]}
+      ]
+
+      assert ["workspace", "email"] = Utils.actor_prefixes(flags)
+    end
+
+    test "actor_prefixes(flags) puts the configured prefixes first, in their order" do
+      Application.put_env(:fun_with_flags_ui, :actor_prefixes, [:user, "email", "not ok"])
+      flags = [%Flag{name: :a, gates: [%Gate{type: :actor, for: "workspace:1", enabled: true},
+                                       %Gate{type: :actor, for: "email:a@b.c", enabled: true}]}]
+
+      assert ["user", "email", "workspace"] = Utils.actor_prefixes(flags)
+    end
+
+    test "build_actor_id(prefix, value) joins them, without doubling a pasted prefix" do
+      assert "email:a@b.c" = Utils.build_actor_id("email", " a@b.c ")
+      assert "email:a@b.c" = Utils.build_actor_id("email", "email:a@b.c")
+      assert "user:1" = Utils.build_actor_id("", "user:1")
+      assert "user:1" = Utils.build_actor_id(nil, "user:1")
+      assert "" = Utils.build_actor_id("email", "  ")
+      assert "" = Utils.build_actor_id("email", nil)
+    end
+  end
+
+  describe "the add-group picker" do
+    test "GroupCatalog lists a group implementation's exact names and patterns, in source order" do
+      assert %{groups: groups} = FunWithFlags.Group.FunWithFlags.UI.TestWorkspace.__fwf_groups__()
+
+      assert [
+               {:exact, "a0"},
+               {:exact, "a"},
+               {:exact, "b"},
+               {:exact, "email:eq:invideo"},
+               {:prefix, "country_group:"},
+               {:prefix, "created_at:gt:"},
+               {:prefix, "tags:has:"},
+               {:exact, "signup_a0"}
+             ] = groups
+    end
+
+    test "group_picker(flags) resolves hints and keeps in-use groups the code doesn't list" do
+      flags = [
+        %Flag{name: :a, gates: [%Gate{type: :group, for: "a0", enabled: true},
+                                %Gate{type: :group, for: "country_group:gold", enabled: true},
+                                %Gate{type: :group, for: "alhpa", enabled: true}]}
+      ]
+
+      picker = Utils.group_picker(flags)
+      assert picker.catalog?
+      assert ["a0", "a", "b", "email:eq:invideo", "signup_a0"] = picker.exact
+      assert %{prefix: "country_group:", placeholder: nil, values: ["platinum", "gold"]} =
+               Enum.find(picker.patterns, &(&1.prefix == "country_group:"))
+      assert %{placeholder: "unix timestamp", values: []} = Enum.find(picker.patterns, &(&1.prefix == "created_at:gt:"))
+      assert ["alhpa"] = picker.in_use
+
+      assert Utils.group_known?(picker, "tags:has:vip")
+      refute Utils.group_known?(picker, "tags:has:")
+      refute Utils.group_known?(picker, "alhpa")
+    end
+
+    test "build_group_name(pick, value)" do
+      assert "a0" = Utils.build_group_name("=a0", "ignored")
+      assert "country_group:gold" = Utils.build_group_name("+country_group:", " gold ")
+      assert "country_group:gold" = Utils.build_group_name("+country_group:", "country_group:gold")
+      assert "" = Utils.build_group_name("+country_group:", " ")
+      assert "beta" = Utils.build_group_name("", " beta ")
+      assert "beta" = Utils.build_group_name(nil, "beta")
+    end
+  end
+
   describe "sanitize(name)" do
     test "it removes leading and trailing whitespace" do
       assert "apricot" = Utils.sanitize(" apricot   ")

@@ -107,7 +107,16 @@ defmodule FunWithFlags.UI.Router do
 
     case Utils.get_flag(name) do
       {:ok, flag} ->
-        assigns = [conn: conn, flag: flag] ++ fetch_flag_audit_logs(conn, name, conn.query_params)
+        # All flags only for the add-actor / add-group pickers (see Utils).
+        {:ok, flags} = FunWithFlags.all_flags()
+        assigns =
+          [
+            conn: conn,
+            flag: flag,
+            actor_prefixes: Utils.actor_prefixes(flags),
+            group_picker: Utils.group_picker(flags)
+          ] ++
+            fetch_flag_audit_logs(conn, name, conn.query_params)
         html_resp(conn, 200, Templates._flag_panel(assigns))
       {:error, _} ->
         html_resp(conn, 404, Templates._flag_panel_not_found(conn: conn, name: name))
@@ -221,7 +230,7 @@ defmodule FunWithFlags.UI.Router do
   #
   post "/flags/:name/actors" do
     flag_name = String.to_existing_atom(name)
-    actor_id = Utils.sanitize(conn.params["actor_id"])
+    actor_id = Utils.build_actor_id(conn.params["actor_prefix"], conn.params["actor_id"])
 
     case Utils.validate(actor_id) do
       :ok ->
@@ -234,7 +243,10 @@ defmodule FunWithFlags.UI.Router do
         end
         redirect_to conn, flag_location(name, "actor_#{actor_id}")
       {:fail, reason} ->
-        render_flags_page(conn, 400, name, actor_error_message: "The actor ID #{reason}.")
+        render_flags_page(conn, 400, name,
+          actor_error_message: "The actor ID #{reason}.",
+          actor_prefix: conn.params["actor_prefix"]
+        )
     end
   end
 
@@ -243,7 +255,7 @@ defmodule FunWithFlags.UI.Router do
   #
   post "/flags/:name/groups" do
     flag_name = String.to_existing_atom(name)
-    group_name = Utils.sanitize(conn.params["group_name"])
+    group_name = Utils.build_group_name(conn.params["group_pick"], conn.params["group_name"])
 
     case Utils.validate(group_name) do
       :ok ->
@@ -255,7 +267,10 @@ defmodule FunWithFlags.UI.Router do
         end
         redirect_to conn, flag_location(name, "group_#{group_name}")
       {:fail, reason} ->
-        render_flags_page(conn, 400, name, group_error_message: "The group name #{reason}.")
+        render_flags_page(conn, 400, name,
+          group_error_message: "The group name #{reason}.",
+          group_pick: conn.params["group_pick"]
+        )
     end
   end
 
@@ -467,7 +482,9 @@ defmodule FunWithFlags.UI.Router do
         selected_name: name,
         any_created: Templates.any_created_at?(flags),
         viewer: get_audit_user_id(conn),
-        deleted_name: deleted_name
+        deleted_name: deleted_name,
+        actor_prefixes: Utils.actor_prefixes(flags),
+        group_picker: Utils.group_picker(flags)
       ] ++ panel_assigns ++ extra_assigns
 
     html_resp(conn, status, Templates.index(assigns))
