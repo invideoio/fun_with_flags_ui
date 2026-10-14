@@ -270,6 +270,42 @@ defmodule FunWithFlags.UI.Templates do
   def gate_param("actors"), do: "actor_id"
   def gate_param("groups"), do: "group_name"
 
+  # The add-actor prefix picker: which prefix starts selected (the one sent
+  # with a rejected add, else the first), and the value box's placeholder for
+  # each choice ("" is "Full ID": no prefix, the whole ID typed by hand).
+  def selected_actor_prefix(prefixes, sent) do
+    if is_binary(sent) and (sent == "" or sent in prefixes), do: sent, else: List.first(prefixes)
+  end
+
+  # The add-group picker's value of each choice: "=<name>" an exact group,
+  # "+<prefix>" a pattern, "" Custom (the default, so the box works as before).
+  def selected_group_pick(picker, sent) do
+    picks = Enum.map(picker.exact ++ picker.in_use, &("=" <> &1)) ++ Enum.map(picker.patterns, &("+" <> &1.prefix))
+    if is_binary(sent) and sent in picks, do: sent, else: ""
+  end
+
+  def group_value_placeholder(_picker, "=" <> name), do: "Nothing to type: adds #{name}"
+
+  def group_value_placeholder(picker, "+" <> prefix) do
+    case Enum.find(picker.patterns, &(&1.prefix == prefix)) do
+      %{placeholder: text} when is_binary(text) -> text
+      %{values: [_ | _] = values} -> Enum.take(values, 4) |> Enum.join(", ") |> Kernel.<>(", …")
+      _ -> "value after #{prefix}"
+    end
+  end
+
+  def group_value_placeholder(_picker, _), do: "Group name, e.g. beta"
+
+  # A group gate no clause in the code matches (only when some implementation
+  # lists its groups): most likely a typo, and it matches nobody.
+  def group_unmatched?(nil, _name), do: false
+  def group_unmatched?(%{catalog?: false}, _name), do: false
+  def group_unmatched?(picker, name), do: not Utils.group_known?(picker, name)
+
+  def actor_value_placeholder(""), do: "Full actor ID, e.g. user:123"
+  def actor_value_placeholder("email"), do: "name@example.com"
+  def actor_value_placeholder(prefix), do: "#{prefix} ID"
+
 
   def page_title(assigns) do
     cond do

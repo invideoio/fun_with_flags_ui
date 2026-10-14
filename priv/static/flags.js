@@ -447,6 +447,115 @@
     if (more && term !== "") more.open = true;
   });
 
+  // --- add-actor prefix picker -----------------------------------------
+  // The picker sends `actor_prefix`, the box the rest; the server joins them.
+  // Here: the box's placeholder follows the picked prefix, a whole ID pasted
+  // or typed into the box ("email:a@b.c") moves its prefix into the picker,
+  // and the last picked prefix is the next panel's default.
+
+  var ACTOR_PREFIX_STORAGE_KEY = "fwf-actor-prefix:" + base;
+
+  function prefixPicker(root) {
+    return root.querySelector("[data-actor-prefix]");
+  }
+
+  function pickerPrefixes(select) {
+    return Array.prototype.map.call(select.options, function (o) { return o.value; }).filter(Boolean);
+  }
+
+  function syncActorPlaceholder(select) {
+    var input = select.form && select.form.querySelector("#fwf-add-actor-input");
+    var option = select.options[select.selectedIndex];
+    if (input && option) input.placeholder = option.getAttribute("data-placeholder") || "";
+  }
+
+  function setActorPrefix(select, prefix) {
+    select.value = prefix;
+    syncActorPlaceholder(select);
+  }
+
+  function splitActorInput(input) {
+    var select = input.form && prefixPicker(input.form);
+    if (!select) return;
+    var split = Core.splitActorId(input.value, pickerPrefixes(select));
+    if (!split) return;
+    setActorPrefix(select, split.prefix);
+    input.value = split.rest;
+  }
+
+  function enhanceActorPicker(root) {
+    var select = prefixPicker(root);
+    if (!select) return;
+    // A rejected add re-renders with the prefix it sent: keep that one.
+    var invalid = root.querySelector('#fwf-add-actor-input[aria-invalid="true"]');
+    var saved = readStorage("localStorage", ACTOR_PREFIX_STORAGE_KEY);
+    if (!invalid && saved !== null && (saved === "" || pickerPrefixes(select).indexOf(saved) !== -1)) {
+      select.value = saved;
+    }
+    syncActorPlaceholder(select);
+  }
+
+  panel.addEventListener("change", function (e) {
+    var select = e.target.closest && e.target.closest("[data-actor-prefix]");
+    if (!select) return;
+    syncActorPlaceholder(select);
+    writeStorage("localStorage", ACTOR_PREFIX_STORAGE_KEY, select.value);
+  });
+
+  // On input, not paste only: a paste fires input too, and typing the
+  // prefix by habit ("email:") is caught once the value after ':' starts.
+  panel.addEventListener("input", function (e) {
+    if (e.target.id === "fwf-add-actor-input") splitActorInput(e.target);
+  });
+
+  panel.addEventListener("submit", function (e) {
+    var select = prefixPicker(e.target);
+    if (select) writeStorage("localStorage", ACTOR_PREFIX_STORAGE_KEY, select.value);
+  });
+
+  // --- add-group picker ------------------------------------------------
+  // Values: "=<name>" an exact group (nothing to type: the box is hidden),
+  // "+<prefix>" a pattern (the box holds the value, with the pattern's
+  // suggested values), "" Custom (the whole name typed). Starts on Custom.
+
+  function syncGroupPick(select) {
+    var input = select.form && select.form.querySelector("#fwf-add-group-input");
+    var option = select.options[select.selectedIndex];
+    if (!input || !option) return;
+    var exact = select.value.charAt(0) === "=";
+    input.hidden = exact;
+    input.disabled = exact;
+    input.placeholder = option.getAttribute("data-placeholder") || "";
+    var list = option.getAttribute("data-list");
+    if (list) input.setAttribute("list", list);
+    else input.removeAttribute("list");
+  }
+
+  function splitGroupInput(input) {
+    var select = input.form && input.form.querySelector("[data-group-pick]");
+    if (!select || select.value !== "") return;
+    var prefixes = Array.prototype.map.call(select.options, function (o) { return o.value; })
+      .filter(function (v) { return v.charAt(0) === "+"; })
+      .map(function (v) { return v.slice(1); });
+    var split = Core.splitGroupName(input.value, prefixes);
+    if (!split) return;
+    select.value = "+" + split.prefix;
+    syncGroupPick(select);
+    input.value = split.rest;
+  }
+
+  panel.addEventListener("change", function (e) {
+    var select = e.target.closest && e.target.closest("[data-group-pick]");
+    if (!select) return;
+    syncGroupPick(select);
+    var input = select.form.querySelector("#fwf-add-group-input");
+    if (input && !input.hidden) input.focus();
+  });
+
+  panel.addEventListener("input", function (e) {
+    if (e.target.id === "fwf-add-group-input") splitGroupInput(e.target);
+  });
+
   function copyText(text, button) {
     var done = function () {
       var label = button.lastChild;
@@ -711,6 +820,9 @@
   // and after every swap).
   function enhancePanel(root) {
     formatTimestamps(root);
+    enhanceActorPicker(root);
+    var groupPick = root.querySelector("[data-group-pick]");
+    if (groupPick) syncGroupPick(groupPick);
     // The percentage form is left alone: it says which unit it sends and
     // the server converts (see Router, POST /flags/:name/percentage).
   }

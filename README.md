@@ -99,6 +99,39 @@ defmodule MyPhoenixAppWeb.Router do
 end
 ```
 
+## Adding actors and groups
+
+The flag page's add-actor and add-group forms each start with a picker, so you type only the part that varies.
+
+**Actors.** Pick a prefix (`email:`, `workspace:`, …) and type the rest; "Full ID" takes the whole ID. The prefixes are the ones actor gates already use across all flags, most used first, after any you configure:
+
+```elixir
+config :fun_with_flags_ui, actor_prefixes: ["workspace", "email", "user"]
+```
+
+A pasted whole ID (`email:a@b.c`) moves its prefix into the picker; the last picked prefix is remembered per browser.
+
+**Groups.** The picker lists the group names your `FunWithFlags.Group` implementations match, read from their clauses at compile time. Add one line to each implementation:
+
+```elixir
+defimpl FunWithFlags.Group, for: MyApp.Workspace do
+  use FunWithFlags.UI.GroupCatalog,
+    hints: %{
+      "country_group:" => {MyApp.CountryGroups, :names, []},
+      "created_at:gt:" => "unix timestamp (seconds)"
+    }
+
+  def in?(%{bucket: b}, "a0"), do: b == :a0
+  def in?(%{bucket: b}, group) when group in ~w(a b c d), do: ...
+  def in?(ws, "country_group:" <> group), do: ...
+  def in?(_, _), do: false
+end
+```
+
+String literals (also joined with `<>`) and `when group in [...]` guards are exact groups: pick and add. Literals followed by a variable (`"country_group:" <> group`) are patterns: pick, then type the value. Private 2-arity helpers the implementation delegates to are read too. A new clause shows up after the next compile. `hints` give a pattern's value a placeholder (a string) or suggested values (a list, or an `{m, f, a}` called when the page renders). "Custom…" takes any name.
+
+Group names on gates that no clause matches are listed separately and marked "not in code" on the flag page: they match nobody, usually a typo. Without any implementation using `GroupCatalog`, the picker lists only the group names gates already use, and nothing is marked.
+
 ## Audit Logging
 
 When [audit logging](https://github.com/tompave/fun_with_flags#audit-logging) is configured in `fun_with_flags`, the web dashboard automatically records all flag changes with the user who made them.

@@ -393,3 +393,23 @@ test("neighborName: [ and ] step through the visible order", () => {
   assert.equal(Core.neighborName(names, "hidden", -1), "c");
   assert.equal(Core.neighborName([], "a", 1), null);
 });
+
+test("splitActorId moves a known prefix out of a whole pasted ID", () => {
+  const prefixes = ["email", "workspace"];
+  assert.deepEqual(Core.splitActorId("email:a@b.c", prefixes), { prefix: "email", rest: "a@b.c" });
+  assert.deepEqual(Core.splitActorId("  workspace:1:2 ", prefixes), { prefix: "workspace", rest: "1:2" });
+  assert.equal(Core.splitActorId("user:1", prefixes), null);
+  assert.equal(Core.splitActorId("email:", prefixes), null);
+  assert.equal(Core.splitActorId("a@b.c", prefixes), null);
+  assert.equal(Core.splitActorId(":x", prefixes), null);
+  assert.equal(Core.splitActorId("", prefixes), null);
+});
+
+test("splitGroupName moves a known pattern out of a whole typed group name", () => {
+  const prefixes = ["country_group:", "tags:has:", "tags:"];
+  assert.deepEqual(Core.splitGroupName("country_group:gold", prefixes), { prefix: "country_group:", rest: "gold" });
+  assert.deepEqual(Core.splitGroupName("tags:has:vip", prefixes), { prefix: "tags:has:", rest: "vip" });
+  assert.equal(Core.splitGroupName("country_group:", prefixes), null);
+  assert.equal(Core.splitGroupName("beta", prefixes), null);
+  assert.equal(Core.splitGroupName("", prefixes), null);
+});

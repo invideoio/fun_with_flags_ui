@@ -8,6 +8,20 @@
   # not "actor_id": a row's anchor is "actor_<target>", so an actor "id"
   # would collide with it
   input_id = "fwf-add-#{singular}-input"
+  # actors only: the prefix picker (see Utils.actor_prefixes/1); none, no picker
+  prefixes = if @kind == "actors", do: assigns[:prefixes] || [], else: []
+  prefix = selected_actor_prefix(prefixes, assigns[:prefix])
+  # groups only: the group picker (see Utils.group_picker/1); nothing to offer, no picker
+  picker = if @kind == "groups", do: assigns[:picker], else: nil
+  picker = if picker && (picker.exact != [] or picker.patterns != [] or picker.in_use != []), do: picker
+  pick = picker && selected_group_pick(picker, assigns[:pick])
+  placeholder =
+    cond do
+      prefixes != [] -> actor_value_placeholder(prefix)
+      picker -> group_value_placeholder(picker, pick)
+      @kind == "actors" -> "Add actor ID, e.g. user:123"
+      true -> "Add group, e.g. beta"
+    end
 %>
 <section class="fwf-section" id="<%= singular %>_gates" aria-labelledby="fwf-h-<%= @kind %>" data-gate-section="<%= @kind %>">
   <div class="fwf-section-head">
@@ -19,9 +33,26 @@
 
   <form id="fwf-new-<%= singular %>-form" class="fwf-add" action="<%= collection %>" method="post">
     <input type="hidden" name="_csrf_token" value="<%= @conn.assigns[:csrf_token] %>">
+    <%= if prefixes != [] do %>
+      <label class="fwf-sr" for="fwf-add-actor-prefix">Actor ID prefix</label>
+      <select class="fwf-select fwf-select--sm fwf-input--mono fwf-add-prefix" id="fwf-add-actor-prefix" name="actor_prefix" data-actor-prefix>
+        <%= for p <- prefixes do %><option value="<%= html_escape(p) %>" data-placeholder="<%= html_escape(actor_value_placeholder(p)) %>"<%= if p == prefix, do: " selected" %>><%= html_escape(p) %>:</option><% end %>
+        <option value="" data-placeholder="<%= actor_value_placeholder("") %>"<%= if prefix == "", do: " selected" %>>Full ID</option>
+      </select>
+    <% end %>
+    <%= if picker do %>
+      <label class="fwf-sr" for="fwf-add-group-pick">Group</label>
+      <select class="fwf-select fwf-select--sm fwf-input--mono fwf-add-prefix" id="fwf-add-group-pick" name="group_pick" data-group-pick>
+        <%= if picker.exact != [] do %><optgroup label="Groups in code"><%= for g <- picker.exact do %><option value="=<%= html_escape(g) %>" data-placeholder="<%= html_escape(group_value_placeholder(picker, "=" <> g)) %>"<%= if pick == "=" <> g, do: " selected" %>><%= html_escape(g) %></option><% end %></optgroup><% end %>
+        <%= if picker.patterns != [] do %><optgroup label="Patterns: pick, then type a value"><%= for {pt, i} <- Enum.with_index(picker.patterns) do %><option value="+<%= html_escape(pt.prefix) %>" data-placeholder="<%= html_escape(group_value_placeholder(picker, "+" <> pt.prefix)) %>"<%= if pt.values != [], do: ~s{ data-list="fwf-group-values-#{i}"} %><%= if pick == "+" <> pt.prefix, do: " selected" %>><%= html_escape(pt.prefix) %>…</option><% end %></optgroup><% end %>
+        <%= if picker.in_use != [] do %><optgroup label="In use on flags, not in code"><%= for g <- picker.in_use do %><option value="=<%= html_escape(g) %>" data-placeholder="<%= html_escape(group_value_placeholder(picker, "=" <> g)) %>"<%= if pick == "=" <> g, do: " selected" %>><%= html_escape(g) %></option><% end %></optgroup><% end %>
+        <option value="" data-placeholder="<%= html_escape(group_value_placeholder(picker, "")) %>"<%= if pick == "", do: " selected" %>>Custom…</option>
+      </select>
+      <%= for {pt, i} <- Enum.with_index(picker.patterns), pt.values != [] do %><datalist id="fwf-group-values-<%= i %>"><%= for v <- pt.values do %><option value="<%= html_escape(v) %>"></option><% end %></datalist><% end %>
+    <% end %>
     <label class="fwf-sr" for="<%= input_id %>"><%= if @kind == "actors", do: "Actor ID", else: "Group name" %></label>
     <input type="text" class="fwf-input fwf-input--mono" id="<%= input_id %>" name="<%= param %>"
-           placeholder="<%= if @kind == "actors", do: "Add actor ID, e.g. user:123", else: "Add group, e.g. beta" %>"
+           placeholder="<%= html_escape(placeholder) %>"
            autocomplete="off" spellcheck="false"<%= if @kind == "actors", do: ~s{ aria-keyshortcuts="a"} %><%= if @error_message, do: ~s{ aria-invalid="true"} %>>
     <span class="fwf-add-actions">
       <button type="submit" name="enabled" value="true" class="fwf-btn fwf-btn--sm"><%= icon(@conn, "add") %>Add as on</button>
@@ -43,11 +74,11 @@
   <%= if total == 0 do %>
     <p class="fwf-gates-empty">No <%= singular %> gates.</p>
   <% else %>
-    <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(shown) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i) %><% end %></ul>
+    <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(shown) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i, picker: picker) %><% end %></ul>
     <%= if rest != [] do %>
       <details class="fwf-more" data-gate-more>
         <summary><%= icon(@conn, "chevron-down") %>Show all <%= total %></summary>
-        <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(rest, length(shown)) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i) %><% end %></ul>
+        <ul class="fwf-gates"><%= for {gate, i} <- Enum.with_index(rest, length(shown)) do %><%= _gate_row(conn: @conn, flag: @flag, kind: @kind, gate: gate, index: i, picker: picker) %><% end %></ul>
       </details>
     <% end %>
   <% end %>

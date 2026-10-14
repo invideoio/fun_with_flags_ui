@@ -497,6 +497,65 @@ defmodule FunWithFlags.UI.RouterTest do
       assert ["/flags/strawberry#actor_user:2"] = get_resp_header(conn, "location")
     end
 
+    test "POST joins the picked prefix and the value, and doesn't double a pasted prefix" do
+      {:ok, false} = FunWithFlags.disable :strawberry
+      conn = request!(:post, "/flags/strawberry/actors", %{actor_prefix: "email", actor_id: " ana@example.com ", enabled: "true"})
+      assert ["/flags/strawberry#actor_email:ana@example.com"] = get_resp_header(conn, "location")
+      conn = request!(:post, "/flags/strawberry/actors", %{actor_prefix: "email", actor_id: "email:bo@example.com", enabled: "false"})
+      assert ["/flags/strawberry#actor_email:bo@example.com"] = get_resp_header(conn, "location")
+      conn = request!(:post, "/flags/strawberry/actors", %{actor_prefix: "", actor_id: "user:7", enabled: "true"})
+      assert ["/flags/strawberry#actor_user:7"] = get_resp_header(conn, "location")
+
+      ids = FunWithFlags.get_flag(:strawberry).gates |> Enum.filter(&Gate.actor?/1) |> Enum.map(& &1.for) |> Enum.sort()
+      assert ["email:ana@example.com", "email:bo@example.com", "user:7"] = ids
+    end
+
+    test "the actor form has a prefix picker of the prefixes in use, plus Full ID; the group form has none" do
+      {:ok, true} = FunWithFlags.enable :strawberry, for_actor: %FunWithFlags.UI.SimpleActor{id: "workspace:1"}
+      {:ok, true} = FunWithFlags.enable :tangerine, for_actor: %FunWithFlags.UI.SimpleActor{id: "workspace:2"}
+      {:ok, true} = FunWithFlags.enable :tangerine, for_actor: %FunWithFlags.UI.SimpleActor{id: "email:a@b.c"}
+
+      for path <- ["/flags/strawberry", "/flags/strawberry/panel"] do
+        body = request!(:get, path).resp_body
+        assert body =~ ~s{<select class="fwf-select fwf-select--sm fwf-input--mono fwf-add-prefix" id="fwf-add-actor-prefix" name="actor_prefix" data-actor-prefix>}
+        assert body =~ ~r{<option value="workspace" data-placeholder="workspace ID"( selected)?>workspace:</option>}
+        assert body =~ ~r{<option value="email" data-placeholder="name@example.com"( selected)?>email:</option>}
+        assert body =~ ~s{<option value="" data-placeholder="Full actor ID, e.g. user:123">Full ID</option>}
+        assert length(String.split(body, ~s{name="actor_prefix"})) == 2
+      end
+    end
+
+    test "the group form offers the groups in code, patterns with their values, and Custom" do
+      {:ok, true} = FunWithFlags.enable :strawberry, for_group: "alhpa"
+      body = request!(:get, "/flags/strawberry").resp_body
+      assert body =~ ~s{<select class="fwf-select fwf-select--sm fwf-input--mono fwf-add-prefix" id="fwf-add-group-pick" name="group_pick" data-group-pick>}
+      assert body =~ ~s{<option value="=a0" data-placeholder="Nothing to type: adds a0">a0</option>}
+      assert body =~ ~s{<option value="+country_group:" data-placeholder="platinum, gold, …" data-list="fwf-group-values-0">country_group:…</option>}
+      assert body =~ ~s{<datalist id="fwf-group-values-0"><option value="platinum"></option><option value="gold"></option></datalist>}
+      assert body =~ ~s{<optgroup label="In use on flags, not in code"><option value="=alhpa"}
+      assert body =~ ~s{<option value="" data-placeholder="Group name, e.g. beta" selected>Custom…</option>}
+      assert body =~ ~s{>not in code</span>}
+    end
+
+    test "POST adds a group from the picker: an exact name, or a pattern plus its value" do
+      {:ok, false} = FunWithFlags.disable :strawberry
+      conn = request!(:post, "/flags/strawberry/groups", %{group_pick: "=a0", group_name: "", enabled: "true"})
+      assert ["/flags/strawberry#group_a0"] = get_resp_header(conn, "location")
+      conn = request!(:post, "/flags/strawberry/groups", %{group_pick: "+country_group:", group_name: "gold", enabled: "true"})
+      assert ["/flags/strawberry#group_country_group:gold"] = get_resp_header(conn, "location")
+      conn = request!(:post, "/flags/strawberry/groups", %{group_pick: "+country_group:", group_name: " ", enabled: "true"})
+      assert 400 = conn.status
+      assert conn.resp_body =~ ~s{<option value="+country_group:" data-placeholder="platinum, gold, …" data-list="fwf-group-values-0" selected>}
+    end
+
+    test "POST with a blank value keeps the picked prefix selected" do
+      {:ok, true} = FunWithFlags.enable :strawberry, for_actor: %FunWithFlags.UI.SimpleActor{id: "workspace:1"}
+      {:ok, true} = FunWithFlags.enable :strawberry, for_actor: %FunWithFlags.UI.SimpleActor{id: "email:a@b.c"}
+      conn = request!(:post, "/flags/strawberry/actors", %{actor_prefix: "email", actor_id: " ", enabled: "true"})
+      assert 400 = conn.status
+      assert conn.resp_body =~ ~s{<option value="email" data-placeholder="name@example.com" selected>email:</option>}
+    end
+
     test "POST with an invalid actor ID re-renders the page with the error, the list and the audit section" do
       {:ok, false} = FunWithFlags.disable :strawberry
       {:ok, true} = FunWithFlags.enable :tangerine
