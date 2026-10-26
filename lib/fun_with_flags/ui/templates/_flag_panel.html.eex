@@ -6,7 +6,10 @@
     <div class="fwf-ph-row">
       <h1 class="fwf-panel-title"><%= html_breakable_name(@flag.name) %></h1>
       <%= html_status_pill(@flag) %>
-      <button type="button" class="fwf-btn fwf-btn--quiet fwf-btn--sm fwf-copy fwf-js-only" data-copy="<%= html_escape(@flag.name) %>" title="Copy name (c)" aria-keyshortcuts="c"><%= icon(@conn, "copy") %><span>Copy name</span></button>
+      <div class="fwf-panel-actions fwf-js-only">
+        <button type="button" class="fwf-btn fwf-btn--quiet fwf-btn--sm fwf-copy" data-copy="<%= html_escape(@flag.name) %>" title="Copy name (c)" aria-keyshortcuts="c"><%= icon(@conn, "copy") %><span>Copy name</span></button>
+        <button type="button" class="fwf-btn fwf-btn--quiet fwf-btn--sm fwf-copy fwf-copy-state" data-copy="<%= html_escape(FunWithFlags.UI.FlagMarkdown.render(@flag)) %>" title="Copy flag state as Markdown"><%= icon(@conn, "copy") %><span>Copy State</span></button>
+      </div>
     </div>
     <p class="fwf-summary"><%= flag_summary(@flag) %></p>
     <%= html_for_viewer(@conn, @flag) %>

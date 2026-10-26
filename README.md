@@ -99,6 +99,10 @@ defmodule MyPhoenixAppWeb.Router do
 end
 ```
 
+## Copying a flag's state
+
+Click **Copy State** in a flag's header to copy a standalone Markdown summary for an agent. It includes the default, every actor and group gate (including collapsed or filtered rows), the percentage rollout, and the evaluation rules. The copied state reflects the loaded flag panel.
+
 ## Adding actors and groups
 
 The flag page's add-actor and add-group forms each start with a picker, so you type only the part that varies.

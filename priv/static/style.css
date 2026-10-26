@@ -1627,7 +1627,10 @@ button.fwf-banner-close {
   overflow-wrap: break-word;
 }
 
-.fwf-ph-row .fwf-copy {
+.fwf-panel-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex: none;
   margin-left: auto;
 }
 
@@ -2472,13 +2475,13 @@ button.fwf-banner-close {
     margin-top: 3px;
   }
 
-  .fwf-ph-row .fwf-copy {
+  .fwf-ph-row .fwf-copy:not(.fwf-copy-state) {
     flex: none;
     width: var(--control-h-sm);
     padding: 0;
   }
 
-  .fwf-ph-row .fwf-copy span {
+  .fwf-ph-row .fwf-copy:not(.fwf-copy-state) span {
     position: absolute;
     width: 1px;
     height: 1px;
