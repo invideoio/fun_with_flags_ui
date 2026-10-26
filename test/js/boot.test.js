@@ -95,6 +95,27 @@ test("flags.js boots in the stub (the test is meaningful)", () => {
   assert.equal(typeof win.FwfShortcuts, "object");
 });
 
+test("the panel copies complete multiline state and acknowledges success", async () => {
+  const { win, els } = boot();
+  const markdown = '# Feature flag: `"checkout"`\n\n## Actors (1)\n\n- `"email:a@example.com"`: Off\n';
+  const copied = [];
+  const label = { textContent: "Copy State" };
+  const button = {
+    getAttribute: (name) => name === "data-copy" ? markdown : null,
+    lastChild: label,
+    querySelector: () => null,
+  };
+  win.navigator.clipboard = { writeText: async (text) => { copied.push(text); } };
+  let restore;
+  win.setTimeout = (fn) => { restore = fn; };
+  els["fwf-panel"].dispatch("click", { target: { closest: (selector) => selector === ".fwf-copy" ? button : null } });
+  await Promise.resolve();
+  assert.deepEqual(copied, [markdown]);
+  assert.equal(label.textContent, "Copied");
+  restore();
+  assert.equal(label.textContent, "Copy State");
+});
+
 test("nothing is focused on load, on wide screens or narrow", () => {
   const { focused } = boot();
   assert.deepEqual(focused, []);

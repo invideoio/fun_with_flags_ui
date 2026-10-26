@@ -220,6 +220,19 @@ defmodule FunWithFlags.UI.TemplatesTest do
       assert String.contains?(out, ~s{<div class="fwf-panel fwf-fade-in" data-name="new_checkout"})
     end
 
+    test "copy state embeds escaped Markdown from all gates", %{conn: conn} do
+      gates = for i <- 1..22, do: %Gate{type: :actor, for: "email:<#{i}>&\"@example.com", enabled: false}
+      flag = %Flag{name: :copy_state, gates: gates}
+      out = Templates._flag_panel(conn: conn, flag: flag)
+      markdown = flag |> FunWithFlags.UI.FlagMarkdown.render() |> FunWithFlags.UI.HTMLEscape.html_escape() |> IO.iodata_to_binary()
+
+      assert out =~ ~s{data-copy="#{markdown}" title="Copy flag state as Markdown"}
+      assert out =~ "<span>Copy State</span>"
+      assert markdown =~ "## Actors (22)"
+      assert markdown =~ "&lt;22&gt;&amp;"
+      refute markdown =~ "<22>"
+    end
+
     test "it includes the CSRF token", %{conn: conn, flag: flag} do
       csrf_token = Plug.CSRFProtection.get_csrf_token()
       out = Templates._flag_panel(conn: conn, flag: flag)
